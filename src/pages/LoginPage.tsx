@@ -1,20 +1,24 @@
 import { useState } from 'react'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, user } = useAuth()
+  const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [clientId, setClientId] = useState('pharmacy')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  if (user) return <Navigate to="/" replace />
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      await login(username, password, clientId)
+      await login(username, password, 'PHARMACY')
+      navigate('/', { replace: true })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'เข้าสู่ระบบไม่สำเร็จ')
     } finally {
@@ -68,8 +72,6 @@ export default function LoginPage() {
                 required
               />
             </div>
-
-            <input type="hidden" value={clientId} onChange={e => setClientId(e.target.value)} />
 
             <button
               type="submit"

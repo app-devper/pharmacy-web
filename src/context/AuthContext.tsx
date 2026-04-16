@@ -16,7 +16,7 @@ interface AuthContextValue {
   user: User | null
   token: string | null
   loading: boolean
-  login: (username: string, password: string, clientId: string) => Promise<void>
+  login: (username: string, password: string, system: string) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -53,10 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       if (!res.ok) return null
       const data = await res.json()
-      if (data.token) {
-        setToken(data.token)
-        localStorage.setItem('token', data.token)
-        return data.token
+      if (data.accessToken) {
+        setToken(data.accessToken)
+        localStorage.setItem('token', data.accessToken)
+        return data.accessToken
       }
       return tk
     } catch {
@@ -90,18 +90,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(id)
   }, [token, keepAlive])
 
-  const login = useCallback(async (username: string, password: string, clientId: string) => {
+  const login = useCallback(async (username: string, password: string, system: string) => {
     const res = await fetch(`${UM_API}/api/um/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, clientId }),
+      body: JSON.stringify({ username, password, system }),
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: 'Login failed' }))
       throw new Error(err.message || 'Login failed')
     }
     const data = await res.json()
-    const tk = data.token as string
+    const tk = data.accessToken as string
     setToken(tk)
     localStorage.setItem('token', tk)
     await fetchUserInfo(tk)
