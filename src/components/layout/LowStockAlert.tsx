@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getLowStockDrugs } from '../../api/drugs'
 import type { Drug } from '../../types/drug'
 
@@ -18,9 +19,13 @@ export default function LowStockAlert() {
   const [drugs, setDrugs] = useState<Drug[]>([])
   const [open, setOpen]   = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
-    getLowStockDrugs().then(setDrugs).catch(() => {})
+    const refresh = () => getLowStockDrugs().then(setDrugs).catch(() => {})
+    refresh()
+    window.addEventListener('pharmacy:stock-changed', refresh)
+    return () => window.removeEventListener('pharmacy:stock-changed', refresh)
   }, [])
 
   useEffect(() => {
@@ -45,7 +50,6 @@ export default function LowStockAlert() {
         className="relative p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
         title="แจ้งเตือนสต็อกต่ำ"
       >
-        {/* Box / package icon */}
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" />
@@ -70,12 +74,10 @@ export default function LowStockAlert() {
           <div className="max-h-80 overflow-y-auto">
             {groups.map(group => (
               <div key={group.label}>
-                {/* Group label */}
                 <div className={`flex items-center gap-1.5 px-4 py-1.5 bg-gray-50 text-xs font-semibold ${group.color}`}>
                   <span className={`w-2 h-2 rounded-full ${group.dot}`} />
                   {group.label}
                 </div>
-                {/* Items */}
                 {group.items.map(drug => (
                   <div key={drug.id} className="flex items-center justify-between px-4 py-2.5 border-b border-gray-50 last:border-0 hover:bg-gray-50">
                     <div className="min-w-0 flex-1">
@@ -95,6 +97,14 @@ export default function LowStockAlert() {
               </div>
             ))}
           </div>
+
+          {/* Footer — link to stock page */}
+          <button
+            onClick={() => { navigate('/stock'); setOpen(false) }}
+            className="w-full text-center text-xs text-blue-600 hover:bg-blue-50 py-2.5 font-medium border-t border-gray-100 transition-colors"
+          >
+            ดูทั้งหมดในหน้าสต็อก →
+          </button>
         </div>
       )}
     </div>

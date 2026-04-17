@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { useIsAdmin } from '../../hooks/useIsAdmin'
 
 const mainItems = [
-  { to: '/sell',      icon: '🛒', label: 'หน้าขายยา' },
-  { to: '/sales',     icon: '🧾', label: 'ประวัติการขาย' },
-  { to: '/stock',     icon: '📦', label: 'สต็อกยา' },
-  { to: '/expiry',    icon: '⏰', label: 'จัดการวันหมดอายุ' },
-  { to: '/imports',   icon: '📥', label: 'นำเข้าสินค้า' },
-  { to: '/suppliers', icon: '🏭', label: 'ซัพพลายเออร์' },
-  { to: '/customers', icon: '👥', label: 'ลูกค้า' },
-  { to: '/report',    icon: '📊', label: 'รายงาน' },
-  { to: '/profit',    icon: '💰', label: 'กำไร' },
+  { to: '/sell',      icon: '🛒', label: 'หน้าขายยา',              adminOnly: false },
+  { to: '/sales',     icon: '🧾', label: 'ประวัติการขาย',           adminOnly: false },
+  { to: '/stock',     icon: '📦', label: 'สต็อกยา',                adminOnly: false },
+  { to: '/expiry',    icon: '⏰', label: 'จัดการวันหมดอายุ',        adminOnly: true  },
+  { to: '/movements', icon: '📋', label: 'ความเคลื่อนไหวสต็อก',    adminOnly: false },
+  { to: '/imports',   icon: '📥', label: 'นำเข้าสินค้า',            adminOnly: true  },
+  { to: '/suppliers', icon: '🏭', label: 'ซัพพลายเออร์',            adminOnly: true  },
+  { to: '/customers', icon: '👥', label: 'ลูกค้า',                  adminOnly: false },
+  { to: '/report',    icon: '📊', label: 'รายงาน',                  adminOnly: false },
+  { to: '/profit',    icon: '💰', label: 'กำไร',                    adminOnly: true  },
 ]
 
 const kyItems = [
@@ -27,8 +29,11 @@ const linkClass = (isActive: boolean) =>
 
 export default function Sidebar() {
   const location = useLocation()
+  const isAdmin = useIsAdmin()
   const kyActive = kyItems.some(k => location.pathname.startsWith(k.to))
   const [kyOpen, setKyOpen] = useState(kyActive)
+
+  const visibleItems = mainItems.filter(item => !item.adminOnly || isAdmin)
 
   return (
     <aside className="w-56 bg-slate-800 text-white flex flex-col min-h-screen shrink-0">
@@ -39,7 +44,7 @@ export default function Sidebar() {
 
       <nav className="flex-1 py-3">
         {/* Main nav items */}
-        {mainItems.map(item => (
+        {visibleItems.map(item => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -50,43 +55,45 @@ export default function Sidebar() {
           </NavLink>
         ))}
 
-        {/* KY Forms group */}
-        <div className="mt-1">
-          <button
-            onClick={() => setKyOpen(o => !o)}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-              kyActive
-                ? 'text-blue-400'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-            }`}
-          >
-            <span>📋</span>
-            <span className="flex-1 text-left">แบบฟอร์ม ขย.</span>
-            <span className={`text-xs transition-transform duration-200 ${kyOpen ? 'rotate-180' : ''}`}>
-              ▾
-            </span>
-          </button>
+        {/* KY Forms group — ADMIN only */}
+        {isAdmin && (
+          <div className="mt-1">
+            <button
+              onClick={() => setKyOpen(o => !o)}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                kyActive
+                  ? 'text-blue-400'
+                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+              }`}
+            >
+              <span>📋</span>
+              <span className="flex-1 text-left">แบบฟอร์ม ขย.</span>
+              <span className={`text-xs transition-transform duration-200 ${kyOpen ? 'rotate-180' : ''}`}>
+                ▾
+              </span>
+            </button>
 
-          {kyOpen && (
-            <div className="bg-slate-900/50">
-              {kyItems.map(item => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 pl-11 pr-4 py-2 text-sm transition-colors ${
-                      isActive
-                        ? 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:bg-slate-700 hover:text-white'
-                    }`
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              ))}
-            </div>
-          )}
-        </div>
+            {kyOpen && (
+              <div className="bg-slate-900/50">
+                {kyItems.map(item => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 pl-11 pr-4 py-2 text-sm transition-colors ${
+                        isActive
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-700 hover:text-white'
+                      }`
+                    }
+                  >
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </nav>
     </aside>
   )

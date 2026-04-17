@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import type { SaleResponse, CartItem } from '../types/sale'
 import type { Drug } from '../types/drug'
 import { useDrugs } from '../hooks/useDrugs'
@@ -24,9 +24,15 @@ export default function SellPage() {
   const [receipt, setReceipt] = useState<{ result: SaleResponse; items: CartItem[] } | null>(null)
   const [showAddCustomer, setShowAddCustomer] = useState(false)
   const [kyData, setKyData] = useState<CheckoutData | null>(null)
+  const [lastScannedId, setLastScannedId] = useState<string | null>(null)
+  const highlightTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useBarcodeScanner((barcode) => {
-    const drug = drugs.find(d => d.barcode === barcode)
+    // Match by barcode first, then fall back to reg_no (for scanners printing the registration number)
+    const drug = drugs.find(d =>
+      (d.barcode && d.barcode === barcode) ||
+      (d.reg_no  && d.reg_no  === barcode)
+    )
     if (!drug) {
       showToast(`ไม่พบยาบาร์โค้ด: ${barcode}`, 'error')
       return
@@ -37,11 +43,13 @@ export default function SellPage() {
     }
     addToCart(drug)
     showToast(`เพิ่ม ${drug.name}`, 'success')
+    setLastScannedId(drug.id)
+    clearTimeout(highlightTimer.current)
+    highlightTimer.current = setTimeout(() => setLastScannedId(null), 800)
   })
 
   const handleCheckoutDone = (result: SaleResponse, cartItems: CartItem[]) => {
     setReceipt({ result, items: cartItems })
-    reload()
   }
 
   return (
@@ -53,13 +61,14 @@ export default function SellPage() {
         </div>
       )}
       <div className="flex flex-1 overflow-hidden">
-      <DrugGrid drugs={drugs} loading={loading} onAdd={(drug: Drug) => addToCart(drug)} scannerActive />
-      <Cart
-        onCheckoutDone={handleCheckoutDone}
-        onReloadDrugs={reload}
-        onAddCustomer={() => setShowAddCustomer(true)}
-        onKyRequired={setKyData}
-      />
+        <DrugGrid drugs={drugs} loading={loading} onAdd={(drug: Drug) => addToCart(drug)} scannerActive highlightedId={lastScannedId} />
+        <Cart
+          onCheckoutDone={handleCheckoutDone}
+          onReloadDrugs={reload}
+          onAddCustomer={() => setShowAddCustomer(true)}
+          onKyRequired={setKyData}
+        />
+      </div>
       {receipt && (
         <ReceiptModal
           result={receipt.result}
@@ -84,7 +93,6 @@ export default function SellPage() {
           onSaved={() => { setShowAddCustomer(false); reloadCustomers() }}
         />
       )}
-      </div>
     </div>
   )
 }

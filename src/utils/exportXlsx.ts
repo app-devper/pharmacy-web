@@ -4,7 +4,7 @@ import { getDrugSellPrice } from '../types/drug'
 import type { Ky9, Ky10, Ky11, Ky12 } from '../types/kyforms'
 import type { EodReport } from '../types/report'
 import type { ProfitReport } from '../types/profitReport'
-import type { ExpiringLot } from '../api/lots'
+import type { ExpiringLot } from '../types/lot'
 
 function save(wb: XLSX.WorkBook, filename: string) {
   XLSX.writeFile(wb, filename)

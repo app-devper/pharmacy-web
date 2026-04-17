@@ -1,19 +1,24 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import type { ExpiringLot } from '../api/lots'
+import type { ExpiringLot } from '../types/lot'
 import { getExpiringLots, getExpiredLots, writeoffLots } from '../api/lots'
 import { exportExpiryXlsx } from '../utils/exportXlsx'
 import { useToast } from '../hooks/useToast'
+import { fmtDateThai } from '../utils/formatters'
 import Spinner from '../components/ui/Spinner'
 
 // ─── Filter tabs ─────────────────────────────────────────────────────────────
 
-const FILTER_TABS = [
-  { label: '30 วัน',        days: 30  },
-  { label: '60 วัน',        days: 60  },
-  { label: '90 วัน',        days: 90  },
-  { label: '180 วัน',       days: 180 },
-  { label: 'หมดอายุแล้ว',  days: -1  }, // -1 = expired_only mode
-] as const
+type FilterTab =
+  | { label: string; mode: 'expiring'; days: number }
+  | { label: string; mode: 'expired' }
+
+const FILTER_TABS: FilterTab[] = [
+  { label: '30 วัน',       mode: 'expiring', days: 30  },
+  { label: '60 วัน',       mode: 'expiring', days: 60  },
+  { label: '90 วัน',       mode: 'expiring', days: 90  },
+  { label: '180 วัน',      mode: 'expiring', days: 180 },
+  { label: 'หมดอายุแล้ว', mode: 'expired'              },
+]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -24,12 +29,6 @@ function statusBadge(daysLeft: number) {
   return               { cls: 'bg-blue-100 text-blue-700',           label: `อีก ${daysLeft} วัน` }
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('th-TH', {
-    day: 'numeric', month: 'short', year: 'numeric',
-  })
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function ExpiryPage() {
@@ -38,7 +37,6 @@ export default function ExpiryPage() {
   const [data, setData]           = useState<ExpiringLot[]>([])
   const [loading, setLoading]     = useState(true)
   const [selected, setSelected]   = useState<Set<string>>(new Set())
-  const [acting, setActing]       = useState(false)
 
   const tab = FILTER_TABS[activeTab]
 
@@ -48,7 +46,7 @@ export default function ExpiryPage() {
     setLoading(true)
     setSelected(new Set())
     try {
-      const result = tab.days === -1
+      const result = tab.mode === 'expired'
         ? await getExpiredLots()
         : await getExpiringLots(tab.days)
       setData(result)
@@ -57,14 +55,19 @@ export default function ExpiryPage() {
     } finally {
       setLoading(false)
     }
-  }, [tab.days, showToast])
+  }, [tab, showToast])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   // ── Selection helpers ─────────────────────────────────────────────────────
 
-  const allIds       = useMemo(() => data.map(l => l.id), [data])
-  const allSelected  = allIds.length > 0 && allIds.every(id => selected.has(id))
+  const allIds = useMemo(() => data.map(l => l.id), [data])
+
+  const allSelected = useMemo(
+    () => allIds.length > 0 && allIds.every(id => selected.has(id)),
+    [allIds, selected]
+  )
+
   const someSelected = selected.size > 0
 
   const toggleAll = () =>
@@ -79,25 +82,21 @@ export default function ExpiryPage() {
 
   // ── Write-off ─────────────────────────────────────────────────────────────
 
-  const handleWriteoff = async (ids: string[], count: number) => {
-    if (!window.confirm(`ยืนยันเขียนทิ้ง ${count} รายการ?\nสต็อกจะถูกหักออกและไม่สามารถกู้คืนได้`)) return
-    setActing(true)
+  const handleWriteoff = async (ids: string[]) => {
+    if (!window.confirm(`ยืนยันเขียนทิ้ง ${ids.length} รายการ?\nสต็อกจะถูกหักออกและไม่สามารถกู้คืนได้`)) return
+    setLoading(true)
     try {
       const res = await writeoffLots(ids)
       showToast(`เขียนทิ้งแล้ว ${res.written_off} รายการ`, 'success')
       fetchData()
     } catch (e) {
       showToast((e as Error).message, 'error')
-    } finally {
-      setActing(false)
+      setLoading(false)
     }
   }
 
-  const handleBulkWriteoff = () =>
-    handleWriteoff(Array.from(selected), selected.size)
-
-  const handleSingleWriteoff = (lot: ExpiringLot) =>
-    handleWriteoff([lot.id], 1)
+  const handleBulkWriteoff   = () => handleWriteoff(Array.from(selected))
+  const handleSingleWriteoff = (lot: ExpiringLot) => handleWriteoff([lot.id])
 
   // ── Summary stats ─────────────────────────────────────────────────────────
 
@@ -146,7 +145,7 @@ export default function ExpiryPage() {
           </button>
           <button
             onClick={handleBulkWriteoff}
-            disabled={!someSelected || acting}
+            disabled={!someSelected || loading}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <span>🗑</span>
@@ -163,7 +162,7 @@ export default function ExpiryPage() {
           <div className="flex flex-col items-center justify-center py-16 gap-2 text-green-600">
             <span className="text-3xl">✅</span>
             <span className="text-sm font-medium">
-              ไม่มียาที่{tab.days === -1 ? 'หมดอายุแล้ว' : `ใกล้หมดอายุในช่วง ${tab.label}`}
+              ไม่มียาที่{tab.mode === 'expired' ? 'หมดอายุแล้ว' : `ใกล้หมดอายุในช่วง ${tab.label}`}
             </span>
           </div>
         ) : (
@@ -206,7 +205,7 @@ export default function ExpiryPage() {
                       </td>
                       <td className="py-3 px-4 font-medium text-gray-800">{lot.drug_name}</td>
                       <td className="py-3 px-4 text-gray-500 font-mono text-xs">{lot.lot_number}</td>
-                      <td className="py-3 px-4 text-gray-600">{fmtDate(lot.expiry_date)}</td>
+                      <td className="py-3 px-4 text-gray-600">{fmtDateThai(lot.expiry_date)}</td>
                       <td className="py-3 px-4 text-right font-semibold text-gray-800">
                         {lot.remaining.toLocaleString()}
                       </td>
@@ -218,7 +217,7 @@ export default function ExpiryPage() {
                       <td className="py-3 px-4 text-right">
                         <button
                           onClick={() => handleSingleWriteoff(lot)}
-                          disabled={acting}
+                          disabled={loading}
                           className="text-xs px-2.5 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           เขียนทิ้ง

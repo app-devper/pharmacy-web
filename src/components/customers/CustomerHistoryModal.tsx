@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getCustomerSales } from '../../api/customers'
 import { useToast } from '../../hooks/useToast'
+import { fmtDateThai, fmtMoney } from '../../utils/formatters'
 import type { Customer } from '../../types/customer'
 import type { Sale } from '../../types/sale'
 import SaleDetailModal from '../sell/SaleDetailModal'
@@ -9,14 +10,6 @@ import Spinner from '../ui/Spinner'
 interface Props {
   customer: Customer
   onClose: () => void
-}
-
-function fmtDate(s: string): string {
-  return new Date(s).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
-}
-
-function fmtMoney(n: number): string {
-  return `฿${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function daysSince(s: string | null): string {
@@ -105,7 +98,7 @@ export default function CustomerHistoryModal({ customer, onClose }: Props) {
                     <tr key={sale.id} className="border-t border-gray-50 hover:bg-gray-50 cursor-pointer"
                       onClick={() => setDetailSale(sale)}>
                       <td className="py-3 px-6 font-mono font-semibold text-gray-800">{sale.bill_no}</td>
-                      <td className="py-3 px-3 text-gray-500 text-xs">{fmtDate(sale.sold_at)}</td>
+                      <td className="py-3 px-3 text-gray-500 text-xs">{fmtDateThai(sale.sold_at)}</td>
                       <td className="py-3 px-6 text-right font-medium text-gray-800">{fmtMoney(sale.total)}</td>
                       <td className="py-3 px-4 text-center">
                         <button

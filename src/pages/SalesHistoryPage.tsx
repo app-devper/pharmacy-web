@@ -2,15 +2,9 @@ import { useState, useEffect } from 'react'
 import type { Sale } from '../types/sale'
 import { getSales } from '../api/sales'
 import { useToast } from '../hooks/useToast'
+import { fmtDateTime } from '../utils/formatters'
 import SaleDetailModal from '../components/sell/SaleDetailModal'
 import Spinner from '../components/ui/Spinner'
-
-function fmtDateTime(s: string) {
-  return new Date(s).toLocaleDateString('th-TH', {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
 
 export default function SalesHistoryPage() {
   const today = new Date().toISOString().split('T')[0]
@@ -146,7 +140,7 @@ export default function SalesHistoryPage() {
         <SaleDetailModal
           sale={selected}
           onClose={() => setSelected(null)}
-          onVoided={() => { setSelected(null); load() }}
+          onSaleChanged={() => { setSelected(null); load() }}
         />
       )}
     </div>

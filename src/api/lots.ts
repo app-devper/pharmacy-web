@@ -1,14 +1,7 @@
 import { apiFetch } from './client'
+import type { ExpiringLot } from '../types/lot'
 
-export interface ExpiringLot {
-  id: string
-  drug_id: string
-  drug_name: string
-  lot_number: string
-  expiry_date: string
-  remaining: number
-  days_left: number
-}
+export type { ExpiringLot }
 
 export const getExpiringLots = (days = 60) =>
   apiFetch<ExpiringLot[]>(`/api/lots/expiring?days=${days}`)

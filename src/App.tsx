@@ -15,6 +15,7 @@ import SalesHistoryPage from './pages/SalesHistoryPage'
 import SuppliersPage from './pages/SuppliersPage'
 import ProfitPage from './pages/ProfitPage'
 import ExpiryPage from './pages/ExpiryPage'
+import MovementsPage from './pages/MovementsPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -32,6 +33,14 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user || !['ADMIN', 'SUPER'].includes(user.role))
+    return <Navigate to="/sell" replace />
+  return <>{children}</>
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -42,16 +51,17 @@ export default function App() {
           <Route path="sell" element={<SellPage />} />
           <Route path="sales" element={<SalesHistoryPage />} />
           <Route path="stock" element={<StockPage />} />
-          <Route path="imports" element={<ImportPage />} />
-          <Route path="suppliers" element={<SuppliersPage />} />
+          <Route path="imports"   element={<AdminRoute><ImportPage /></AdminRoute>} />
+          <Route path="suppliers" element={<AdminRoute><SuppliersPage /></AdminRoute>} />
           <Route path="customers" element={<CustomersPage />} />
-          <Route path="report" element={<ReportPage />} />
-          <Route path="profit" element={<ProfitPage />} />
-          <Route path="expiry" element={<ExpiryPage />} />
-          <Route path="ky9" element={<Ky9Page />} />
-          <Route path="ky10" element={<Ky10Page />} />
-          <Route path="ky11" element={<Ky11Page />} />
-          <Route path="ky12" element={<Ky12Page />} />
+          <Route path="report"    element={<ReportPage />} />
+          <Route path="profit"    element={<AdminRoute><ProfitPage /></AdminRoute>} />
+          <Route path="expiry"    element={<AdminRoute><ExpiryPage /></AdminRoute>} />
+          <Route path="movements" element={<MovementsPage />} />
+          <Route path="ky9"  element={<AdminRoute><Ky9Page /></AdminRoute>} />
+          <Route path="ky10" element={<AdminRoute><Ky10Page /></AdminRoute>} />
+          <Route path="ky11" element={<AdminRoute><Ky11Page /></AdminRoute>} />
+          <Route path="ky12" element={<AdminRoute><Ky12Page /></AdminRoute>} />
         </Route>
       </Routes>
     </BrowserRouter>

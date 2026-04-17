@@ -8,7 +8,6 @@ import KyTable from '../components/kyforms/KyTable'
 import AddKy9Modal from '../components/kyforms/AddKy9Modal'
 import Spinner from '../components/ui/Spinner'
 import { exportKy9Xlsx } from '../utils/exportXlsx'
-import { exportKy9Pdf } from '../utils/exportPdf'
 
 const columns = [
   { key: 'date', label: 'วันที่' },
@@ -47,7 +46,6 @@ export default function Ky9Page() {
         month={month}
         onMonthChange={setMonth}
         onAdd={() => setShowAdd(true)}
-        onExportPdf={() => exportKy9Pdf(entries, month)}
         onExportXlsx={() => exportKy9Xlsx(entries, month)}
       />
       {loading ? <Spinner /> : (

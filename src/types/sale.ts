@@ -1,4 +1,5 @@
 import type { Drug } from './drug'
+import type { Customer } from './customer'
 
 export interface SaleItemInput {
   drug_id: string
@@ -48,6 +49,14 @@ export interface SaleResponse {
 export interface CartItem extends Drug {
   qty: number
   itemDiscount: number   // ฿ ส่วนลดต่อหน่วยของรายการนี้
+}
+
+export interface ParkedSlot {
+  items: CartItem[]
+  customer: Customer | null
+  discountInput: string
+  discountType: '฿' | '%'
+  parkedAt: number       // Date.now()
 }
 
 // ─── Drug Return ──────────────────────────────────────────────────────────────

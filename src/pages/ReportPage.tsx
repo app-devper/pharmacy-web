@@ -13,11 +13,13 @@ import RecentBills from '../components/report/RecentBills'
 import EodModal from '../components/report/EodModal'
 import DayPicker from '../components/ui/DayPicker'
 import Button from '../components/ui/Button'
+import { useIsAdmin } from '../hooks/useIsAdmin'
 import Spinner from '../components/ui/Spinner'
 
 const DAY_OPTIONS = [7, 14, 30]
 
 export default function ReportPage() {
+  const isAdmin = useIsAdmin()
   const [summary, setSummary]   = useState<ReportSummary | null>(null)
   const [daily, setDaily]       = useState<DailyData[]>([])
   const [monthly, setMonthly]   = useState<MonthlyData[]>([])
@@ -60,7 +62,7 @@ export default function ReportPage() {
   return (
     <div className="p-6">
       <div className="flex justify-end mb-4">
-        <Button onClick={() => setShowEod(true)}>ปิดรอบ</Button>
+        {isAdmin && <Button onClick={() => setShowEod(true)}>ปิดรอบ</Button>}
       </div>
 
       {summary && <ReportMetrics summary={summary} monthProfit={currentMonthProfit} />}

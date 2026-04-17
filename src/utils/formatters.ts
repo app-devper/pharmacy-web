@@ -3,6 +3,14 @@ export function fmtDate(s: string | undefined | null): string {
   return s.slice(0, 10)
 }
 
+// Thai locale date-only — "16 เม.ย. 2568"
+export function fmtDateThai(s: string | undefined | null): string {
+  if (!s) return '—'
+  return new Date(s).toLocaleDateString('th-TH', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  })
+}
+
 export function fmtDateTime(s: string | undefined | null): string {
   if (!s) return '—'
   return new Date(s).toLocaleDateString('th-TH', {

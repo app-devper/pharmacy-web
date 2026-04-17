@@ -4,9 +4,10 @@ import { TypeBadge, KyBadges } from '../ui/Badge'
 interface Props {
   drug: Drug
   onAdd: (drug: Drug) => void
+  highlighted?: boolean
 }
 
-export default function DrugCard({ drug, onAdd }: Props) {
+export default function DrugCard({ drug, onAdd, highlighted }: Props) {
   const oos = drug.stock === 0
   const price = getDrugSellPrice(drug)
   return (
@@ -16,7 +17,9 @@ export default function DrugCard({ drug, onAdd }: Props) {
       className={`bg-white rounded-xl border p-3 text-left transition-all ${
         oos
           ? 'opacity-50 cursor-not-allowed border-gray-100'
-          : 'hover:shadow-md hover:border-blue-300 active:scale-95 border-gray-200'
+          : highlighted
+            ? 'shadow-md border-green-400 ring-2 ring-green-300 scale-[1.02]'
+            : 'hover:shadow-md hover:border-blue-300 active:scale-95 border-gray-200'
       }`}
     >
       <div className="flex justify-between items-start gap-2 mb-0.5">

@@ -21,7 +21,11 @@ export default function MonthlyChart({ data: propData }: Props) {
   const [loading, setLoading] = useState(propData === undefined)
 
   useEffect(() => {
-    if (propData !== undefined) return  // parent owns the data
+    if (propData !== undefined) {
+      setData(propData)
+      setLoading(false)
+      return
+    }
     let mounted = true
     setLoading(true)
     getMonthly(12)
@@ -30,11 +34,6 @@ export default function MonthlyChart({ data: propData }: Props) {
       .finally(() => { if (mounted) setLoading(false) })
     return () => { mounted = false }
   }, [propData, showToast])
-
-  // Sync when parent passes updated data
-  useEffect(() => {
-    if (propData !== undefined) { setData(propData); setLoading(false) }
-  }, [propData])
 
   const chartData = data.map(d => ({ ...d, label: shortMonth(d.month) }))
 

@@ -6,6 +6,7 @@ import EditDrugModal from './EditDrugModal'
 import LotListModal from './LotListModal'
 import StockAdjustmentModal from './StockAdjustmentModal'
 import AdjustmentLogModal from './AdjustmentLogModal'
+import { useIsAdmin } from '../../hooks/useIsAdmin'
 
 interface Props {
   drugs: Drug[]
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function DrugTable({ drugs, onReload }: Props) {
+  const isAdmin = useIsAdmin()
   const [editing, setEditing]       = useState<Drug | null>(null)
   const [lotDrug, setLotDrug]       = useState<Drug | null>(null)
   const [adjustDrug, setAdjustDrug] = useState<Drug | null>(null)
@@ -72,18 +74,22 @@ export default function DrugTable({ drugs, onReload }: Props) {
                   <td className="py-3 px-3 text-gray-400 text-xs">{drug.barcode || '—'}</td>
                   <td className="py-3 px-3">
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => setEditing(drug)}
-                        className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
-                      >แก้ไข</button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => setEditing(drug)}
+                          className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
+                        >แก้ไข</button>
+                      )}
                       <button
                         onClick={() => setLotDrug(drug)}
                         className="text-xs text-blue-600 hover:underline"
                       >ล็อต</button>
-                      <button
-                        onClick={() => setAdjustDrug(drug)}
-                        className="text-xs text-emerald-600 hover:underline"
-                      >ปรับสต็อก</button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => setAdjustDrug(drug)}
+                          className="text-xs text-emerald-600 hover:underline"
+                        >ปรับสต็อก</button>
+                      )}
                       <button
                         onClick={() => setLogDrug(drug)}
                         className="text-xs text-gray-400 hover:text-gray-600 hover:underline"

@@ -2,20 +2,22 @@ import { useState, useEffect } from 'react'
 import { getSaleItems, getReturns } from '../../api/sales'
 import { useToast } from '../../hooks/useToast'
 import { printReceipt } from '../../utils/printReceipt'
-import { fmtDateTime } from '../../utils/formatters'
+import { fmtDateTime, fmtMoney } from '../../utils/formatters'
 import type { Sale, SaleItem, DrugReturn } from '../../types/sale'
 import Spinner from '../ui/Spinner'
 import VoidSaleModal from './VoidSaleModal'
 import ReturnSaleModal from './ReturnSaleModal'
+import { useIsAdmin } from '../../hooks/useIsAdmin'
 
 interface Props {
   sale: Sale
   onClose: () => void
-  onVoided?: () => void
+  onSaleChanged?: () => void
 }
 
-export default function SaleDetailModal({ sale, onClose, onVoided }: Props) {
+export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props) {
   const showToast = useToast()
+  const isAdmin = useIsAdmin()
   const [items, setItems]     = useState<SaleItem[]>([])
   const [returns, setReturns] = useState<DrugReturn[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,7 +50,7 @@ export default function SaleDetailModal({ sale, onClose, onVoided }: Props) {
   const handleReturned = (newReturn: DrugReturn) => {
     setReturns(prev => [newReturn, ...prev])
     setShowReturn(false)
-    onVoided?.() // reload parent list
+    onSaleChanged?.()
   }
 
   return (
@@ -115,9 +117,9 @@ export default function SaleDetailModal({ sale, onClose, onVoided }: Props) {
                     <tr key={item.id} className="border-t border-gray-50">
                       <td className="py-2.5 px-5 text-gray-800 font-medium">{item.drug_name}</td>
                       <td className="py-2.5 px-3 text-right text-gray-600">{item.qty}</td>
-                      <td className="py-2.5 px-3 text-right text-gray-600">฿{item.price.toLocaleString()}</td>
+                      <td className="py-2.5 px-3 text-right text-gray-600">{fmtMoney(item.price)}</td>
                       <td className="py-2.5 px-5 text-right font-semibold text-gray-800">
-                        ฿{item.subtotal.toLocaleString()}
+                        {fmtMoney(item.subtotal)}
                       </td>
                     </tr>
                   ))}
@@ -131,29 +133,31 @@ export default function SaleDetailModal({ sale, onClose, onVoided }: Props) {
             {sale.discount > 0 && (
               <div className="flex justify-between text-sm text-rose-500">
                 <span>ส่วนลด</span>
-                <span>-฿{sale.discount.toLocaleString()}</span>
+                <span>-{fmtMoney(sale.discount)}</span>
               </div>
             )}
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">{sale.discount > 0 ? 'ยอดสุทธิ' : 'ยอดรวม'}</span>
-              <span className="font-bold text-gray-800">฿{sale.total.toLocaleString()}</span>
+              <span className="font-bold text-gray-800">{fmtMoney(sale.total)}</span>
             </div>
             <div className="flex justify-between text-xs text-gray-400">
-              <span>รับเงิน</span><span>฿{sale.received.toLocaleString()}</span>
+              <span>รับเงิน</span><span>{fmtMoney(sale.received)}</span>
             </div>
             <div className="flex justify-between text-xs text-gray-400">
-              <span>ทอน</span><span>฿{sale.change.toLocaleString()}</span>
+              <span>ทอน</span><span>{fmtMoney(sale.change)}</span>
             </div>
 
             <div className="flex gap-2 pt-2">
               {!sale.voided && (
                 <>
-                  <button
-                    onClick={() => setShowVoid(true)}
-                    className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-sm transition-colors"
-                  >
-                    ยกเลิกบิล
-                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => setShowVoid(true)}
+                      className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-sm transition-colors"
+                    >
+                      ยกเลิกบิล
+                    </button>
+                  )}
                   <button
                     onClick={() => setShowReturn(true)}
                     disabled={loading}
@@ -185,7 +189,7 @@ export default function SaleDetailModal({ sale, onClose, onVoided }: Props) {
       {showVoid && (
         <VoidSaleModal
           sale={sale}
-          onVoided={() => { setShowVoid(false); onClose(); onVoided?.() }}
+          onVoided={() => { setShowVoid(false); onClose(); onSaleChanged?.() }}
           onClose={() => setShowVoid(false)}
         />
       )}

@@ -8,9 +8,10 @@ interface Props {
   loading: boolean
   onAdd: (drug: Drug) => void
   scannerActive?: boolean
+  highlightedId?: string | null
 }
 
-export default function DrugGrid({ drugs, loading, onAdd, scannerActive }: Props) {
+export default function DrugGrid({ drugs, loading, onAdd, scannerActive, highlightedId }: Props) {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
 
@@ -53,7 +54,7 @@ export default function DrugGrid({ drugs, loading, onAdd, scannerActive }: Props
       </div>
       <div className="flex-1 overflow-y-auto p-3 grid grid-cols-2 gap-2 content-start">
         {filtered.map(d => (
-          <DrugCard key={d.id} drug={d} onAdd={onAdd} />
+          <DrugCard key={d.id} drug={d} onAdd={onAdd} highlighted={d.id === highlightedId} />
         ))}
         {filtered.length === 0 && (
           <div className="col-span-2 text-center text-gray-400 py-8 text-sm">ไม่พบรายการ</div>

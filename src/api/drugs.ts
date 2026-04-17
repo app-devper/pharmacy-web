@@ -11,6 +11,24 @@ export const addDrug = (data: DrugInput) =>
 export const updateDrug = (id: string, data: DrugUpdate) =>
   apiFetch<{ ok: boolean }>(`/api/drugs/${id}`, { method: 'PUT', body: JSON.stringify(data) })
 
+// Bulk import API
+export interface BulkImportRowError {
+  row: number
+  name: string
+  message: string
+}
+
+export interface BulkImportResult {
+  imported: number
+  errors: BulkImportRowError[]
+}
+
+export const bulkImportDrugs = (drugs: DrugInput[]) =>
+  apiFetch<BulkImportResult>('/api/drugs/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ drugs }),
+  })
+
 // Lot API
 export const getLots = (drugId: string) =>
   apiFetch<DrugLot[]>(`/api/drugs/${drugId}/lots`)

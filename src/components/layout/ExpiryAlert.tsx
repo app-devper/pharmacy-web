@@ -29,7 +29,10 @@ export default function ExpiryAlert() {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    getExpiringLots(60).then(setLots).catch(() => {})
+    const refresh = () => getExpiringLots(60).then(setLots).catch(() => {})
+    refresh()
+    window.addEventListener('pharmacy:stock-changed', refresh)
+    return () => window.removeEventListener('pharmacy:stock-changed', refresh)
   }, [])
 
   useEffect(() => {

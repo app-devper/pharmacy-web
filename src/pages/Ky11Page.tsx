@@ -11,7 +11,6 @@ import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import { DRUG_UNITS } from '../types/drug'
 import { exportKy11Xlsx } from '../utils/exportXlsx'
-import { exportKy11Pdf } from '../utils/exportPdf'
 
 const columns = [
   { key: 'date', label: 'วันที่' },
@@ -75,7 +74,6 @@ export default function Ky11Page() {
         month={month}
         onMonthChange={setMonth}
         onAdd={() => setShowAdd(true)}
-        onExportPdf={() => exportKy11Pdf(entries, month)}
         onExportXlsx={() => exportKy11Xlsx(entries, month)}
       />
       {loading ? <Spinner /> : <KyTable columns={columns} rows={entries} />}

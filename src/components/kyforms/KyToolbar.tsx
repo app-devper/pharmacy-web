@@ -4,12 +4,11 @@ interface Props {
   month: string
   onMonthChange: (m: string) => void
   onAdd?: () => void
-  onExportPdf?: () => void
   onExportXlsx?: () => void
   addLabel?: string
 }
 
-export default function KyToolbar({ month, onMonthChange, onAdd, onExportPdf, onExportXlsx, addLabel = 'เพิ่มรายการ' }: Props) {
+export default function KyToolbar({ month, onMonthChange, onAdd, onExportXlsx, addLabel = 'เพิ่มรายการ' }: Props) {
   return (
     <div className="flex items-center gap-3 mb-4">
       <div>
@@ -27,9 +26,6 @@ export default function KyToolbar({ month, onMonthChange, onAdd, onExportPdf, on
           className="border-green-300 text-green-700 hover:bg-green-50">
           Excel
         </Button>
-      )}
-      {onExportPdf && (
-        <Button variant="secondary" onClick={onExportPdf}>PDF</Button>
       )}
       {onAdd && (
         <Button onClick={onAdd}>{addLabel}</Button>

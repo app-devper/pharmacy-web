@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCart } from '../../context/CartContext'
 import { createSale } from '../../api/sales'
 import { useToast } from '../../hooks/useToast'
@@ -6,6 +6,7 @@ import CartItemRow from './CartItem'
 import CustomerPickerModal from './CustomerPickerModal'
 import CartDiscountModal from './CartDiscountModal'
 import SingleItemDiscountModal from './SingleItemDiscountModal'
+import ParkTabs from './ParkTabs'
 import type { SaleResponse, CartItem } from '../../types/sale'
 import { getDrugSellPrice } from '../../types/drug'
 import type { CheckoutData } from './KySaleModal'
@@ -18,7 +19,12 @@ interface Props {
 }
 
 export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onKyRequired }: Props) {
-  const { items, changeQty, setItemDiscount, clearCart, total, selectedCustomer, setSelectedCustomer } = useCart()
+  const {
+    items, changeQty, setItemDiscount, clearCart, total,
+    selectedCustomer, setSelectedCustomer,
+    discountInput, discountType, setDiscountInput, setDiscountType,
+    activeSlot,
+  } = useCart()
   const showToast = useToast()
   const [received, setReceived] = useState('')
   const [loading, setLoading] = useState(false)
@@ -26,9 +32,8 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
   const [showCartDiscount, setShowCartDiscount] = useState(false)
   const [discountItem, setDiscountItem] = useState<CartItem | null>(null)
 
-  // cart-level discount state
-  const [discountInput, setDiscountInput] = useState('')
-  const [discountType, setDiscountType] = useState<'฿' | '%'>('฿')
+  // Reset received amount when switching park slots
+  useEffect(() => { setReceived('') }, [activeSlot])
 
   // discount calculations
   // total (from context) = grossSubtotal - totalItemDiscount (effective subtotal)
@@ -78,7 +83,6 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
       })
       clearCart()
       setReceived('')
-      setDiscountInput('')
       onReloadDrugs()
       onCheckoutDone(result, [...items])
     } catch (e: unknown) {
@@ -94,7 +98,8 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
     selectedCustomer.disease !== '-' && selectedCustomer.disease !== ''
 
   return (
-    <div className="w-72 bg-white border-l border-gray-200 flex flex-col">
+    <div className="flex border-l border-gray-200">
+      <div className="w-72 bg-white flex flex-col">
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100">
         <h2 className="font-semibold text-gray-800">ตะกร้า</h2>
@@ -234,6 +239,8 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
           {loading ? 'กำลังบันทึก...' : 'ออกใบเสร็จ'}
         </button>
       </div>
+      </div>
+      <ParkTabs />
     </div>
   )
 }
