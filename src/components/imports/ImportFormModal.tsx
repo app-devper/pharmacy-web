@@ -17,10 +17,9 @@ interface Props {
 
 const today = new Date().toISOString().split('T')[0]
 
-function emptyRow(idx: number): POItemInput {
-  const ymd = today.replace(/-/g, '').slice(2) // YYMMDD
+function emptyRow(): POItemInput {
   return {
-    drug_id: '', drug_name: '', lot_number: `IMP-${ymd}-${String(idx + 1).padStart(3, '0')}`,
+    drug_id: '', drug_name: '', lot_number: '',
     expiry_date: '', qty: '', cost_price: '', sell_price: '',
   }
 }
@@ -46,7 +45,7 @@ export default function ImportFormModal({ existingId, onClose, onSaved }: Props)
   const [header, setHeader] = useState({
     supplier: '', invoice_no: '', receive_date: today, notes: '',
   })
-  const [rows, setRows] = useState<POItemInput[]>([emptyRow(0)])
+  const [rows, setRows] = useState<POItemInput[]>([emptyRow()])
   const [errors, setErrors] = useState<Set<number>>(new Set())
   const [saving, setSaving] = useState(false)
   const [loadingEdit, setLoadingEdit] = useState(!!existingId)
@@ -99,7 +98,7 @@ export default function ImportFormModal({ existingId, onClose, onSaved }: Props)
     }))
   }, [drugs])
 
-  const addRow = () => setRows(prev => [...prev, emptyRow(prev.length)])
+  const addRow = () => setRows(prev => [...prev, emptyRow()])
 
   const removeRow = (idx: number) =>
     setRows(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev)

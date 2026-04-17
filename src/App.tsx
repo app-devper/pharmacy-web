@@ -16,6 +16,8 @@ import SuppliersPage from './pages/SuppliersPage'
 import ProfitPage from './pages/ProfitPage'
 import ExpiryPage from './pages/ExpiryPage'
 import MovementsPage from './pages/MovementsPage'
+import UsersPage from './pages/UsersPage'
+import ProfilePage from './pages/ProfilePage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -62,6 +64,8 @@ export default function App() {
           <Route path="ky10" element={<AdminRoute><Ky10Page /></AdminRoute>} />
           <Route path="ky11" element={<AdminRoute><Ky11Page /></AdminRoute>} />
           <Route path="ky12" element={<AdminRoute><Ky12Page /></AdminRoute>} />
+          <Route path="users" element={<AdminRoute><UsersPage /></AdminRoute>} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
       </Routes>
     </BrowserRouter>

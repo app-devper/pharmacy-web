@@ -10,6 +10,8 @@ interface User {
   username: string
   role: string
   system: string
+  phone: string
+  email: string
 }
 
 interface AuthContextValue {
@@ -18,6 +20,7 @@ interface AuthContextValue {
   loading: boolean
   login: (username: string, password: string, system: string) => Promise<void>
   logout: () => Promise<void>
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -117,8 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAuth()
   }, [token, clearAuth])
 
+  const refreshUser = useCallback(async () => {
+    if (token) await fetchUserInfo(token)
+  }, [token, fetchUserInfo])
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

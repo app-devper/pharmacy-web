@@ -19,6 +19,9 @@ const pageTitles: Record<string, string> = {
   '/ky10':      'ขย.10 — บัญชีการขายยาควบคุมพิเศษ',
   '/ky11':      'ขย.11 — บัญชีการขายยาอันตราย',
   '/ky12':      'ขย.12 — บัญชีการขายยาตามใบสั่งแพทย์',
+  '/users':     'จัดการผู้ใช้งาน',
+  '/movements': 'ความเคลื่อนไหวสต็อก',
+  '/profile':   'โปรไฟล์ของฉัน',
 }
 
 export default function Topbar() {
@@ -60,7 +63,13 @@ export default function Topbar() {
             <span className={`px-2 py-0.5 rounded text-xs font-medium ${roleBadge[user.role] || 'bg-gray-100 text-gray-700'}`}>
               {user.role}
             </span>
-            <span className="text-sm text-gray-700">{user.firstName}</span>
+            <button
+              onClick={() => navigate('/profile')}
+              className="text-sm text-gray-700 hover:text-blue-600 transition-colors"
+              title="โปรไฟล์ของฉัน"
+            >
+              {user.firstName}
+            </button>
             <button
               onClick={handleLogout}
               className="text-xs text-gray-400 hover:text-red-500 transition-colors ml-1"

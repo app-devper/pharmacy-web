@@ -13,6 +13,7 @@ const mainItems = [
   { to: '/customers', icon: '👥', label: 'ลูกค้า',                  adminOnly: false },
   { to: '/report',    icon: '📊', label: 'รายงาน',                  adminOnly: false },
   { to: '/profit',    icon: '💰', label: 'กำไร',                    adminOnly: true  },
+  { to: '/users',     icon: '🔐', label: 'จัดการผู้ใช้งาน',          adminOnly: true  },
 ]
 
 const kyItems = [
