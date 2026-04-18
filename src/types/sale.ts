@@ -1,10 +1,15 @@
-import type { Drug } from './drug'
+import type { Drug, PriceTier } from './drug'
 import type { Customer } from './customer'
 
 export interface SaleItemInput {
   drug_id: string
-  qty: number
-  price: number
+  qty: number                  // BASE units
+  price: number                // per BASE unit
+  original_price?: number
+  item_discount?: number
+  unit?: string                // alt-unit name; "" or omit = base unit
+  unit_factor?: number         // 1 = base, >=2 = alt
+  price_tier?: PriceTier       // "" default = retail
 }
 
 export interface SaleInput {
@@ -34,9 +39,19 @@ export interface SaleItem {
   sale_id: string
   drug_id: string
   drug_name: string
-  qty: number
-  price: number
+  qty: number                  // BASE units
+  price: number                // per BASE unit
+  original_price?: number
+  item_discount?: number
   subtotal: number
+  unit?: string                // alt-unit display name; "" = base
+  unit_factor?: number         // 1 = base, >=2 = alt
+  price_tier?: PriceTier       // "" default = retail
+}
+
+export interface StockUpdate {
+  drug_id: string
+  new_stock: number
 }
 
 export interface SaleResponse {
@@ -44,11 +59,18 @@ export interface SaleResponse {
   discount: number
   total: number
   change: number
+  stock_updates?: StockUpdate[]
 }
 
 export interface CartItem extends Drug {
-  qty: number
-  itemDiscount: number   // ฿ ส่วนลดต่อหน่วยของรายการนี้
+  qty: number                // BASE units (e.g. "2 แผง × 10" = 20)
+  itemDiscount: number       // ฿ ส่วนลดต่อ **base** unit
+  /** Alt-unit display name. "" or undefined = sell in base unit. */
+  selected_unit?: string
+  /** Conversion factor of the selected alt unit. 1 = base unit. */
+  selected_unit_factor?: number
+  /** Unit sell price as set on the drug's alt_unit; overrides getDrugSellPrice(base) × factor. */
+  selected_unit_price?: number
 }
 
 export interface ParkedSlot {
@@ -56,6 +78,7 @@ export interface ParkedSlot {
   customer: Customer | null
   discountInput: string
   discountType: '฿' | '%'
+  priceTier?: PriceTier   // persisted cart-wide pricing tier
   parkedAt: number       // Date.now()
 }
 

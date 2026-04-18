@@ -5,6 +5,7 @@ import { useToast } from '../hooks/useToast'
 import { fmtDateTime } from '../utils/formatters'
 import SaleDetailModal from '../components/sell/SaleDetailModal'
 import Spinner from '../components/ui/Spinner'
+import { useDrugs } from '../hooks/useDrugs'
 
 export default function SalesHistoryPage() {
   const today = new Date().toISOString().split('T')[0]
@@ -15,6 +16,7 @@ export default function SalesHistoryPage() {
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState<Sale | null>(null)
   const showToast = useToast()
+  const { reload: reloadDrugs } = useDrugs()
 
   const load = async () => {
     setLoading(true)
@@ -140,7 +142,13 @@ export default function SalesHistoryPage() {
         <SaleDetailModal
           sale={selected}
           onClose={() => setSelected(null)}
-          onSaleChanged={() => { setSelected(null); load() }}
+          onSaleChanged={() => {
+            // Void/return restores stock on the backend → invalidate shared drug cache
+            // so SellPage/StockPage don't show stale numbers.
+            setSelected(null)
+            load()
+            reloadDrugs()
+          }}
         />
       )}
     </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
+import { useSettings } from '../../context/SettingsContext'
 
 const mainItems = [
   { to: '/sell',      icon: '🛒', label: 'หน้าขายยา',              adminOnly: false },
@@ -14,6 +15,7 @@ const mainItems = [
   { to: '/report',    icon: '📊', label: 'รายงาน',                  adminOnly: false },
   { to: '/profit',    icon: '💰', label: 'กำไร',                    adminOnly: true  },
   { to: '/users',     icon: '🔐', label: 'จัดการผู้ใช้งาน',          adminOnly: true  },
+  { to: '/settings',  icon: '⚙️', label: 'ตั้งค่าระบบ',              adminOnly: true  },
 ]
 
 const kyItems = [
@@ -31,15 +33,17 @@ const linkClass = (isActive: boolean) =>
 export default function Sidebar() {
   const location = useLocation()
   const isAdmin = useIsAdmin()
+  const { settings } = useSettings()
   const kyActive = kyItems.some(k => location.pathname.startsWith(k.to))
   const [kyOpen, setKyOpen] = useState(kyActive)
 
   const visibleItems = mainItems.filter(item => !item.adminOnly || isAdmin)
+  const shopName = settings.store.name || 'ร้านยา'
 
   return (
     <aside className="w-56 bg-slate-800 text-white flex flex-col min-h-screen shrink-0">
       <div className="px-4 py-5 border-b border-slate-700">
-        <div className="text-base font-bold text-white">ร้านยา เฮลท์ตี้ฟาร์ม</div>
+        <div className="text-base font-bold text-white truncate">{shopName}</div>
         <div className="text-xs text-slate-400 mt-0.5">ระบบ POS ร้านขายยา</div>
       </div>
 

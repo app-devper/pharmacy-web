@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useCart } from '../../context/CartContext'
 import { createSale } from '../../api/sales'
+import { useDrugs } from '../../hooks/useDrugs'
+import { useSettings } from '../../context/SettingsContext'
 import { useToast } from '../../hooks/useToast'
 import CartItemRow from './CartItem'
 import CustomerPickerModal from './CustomerPickerModal'
@@ -8,7 +10,8 @@ import CartDiscountModal from './CartDiscountModal'
 import SingleItemDiscountModal from './SingleItemDiscountModal'
 import ParkTabs from './ParkTabs'
 import type { SaleResponse, CartItem } from '../../types/sale'
-import { getDrugSellPrice } from '../../types/drug'
+import { itemBasePrice } from '../../context/CartContext'
+import { TIER_OPTIONS } from '../../utils/pricing'
 import type { CheckoutData } from './KySaleModal'
 
 interface Props {
@@ -22,9 +25,12 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
   const {
     items, changeQty, setItemDiscount, clearCart, total,
     selectedCustomer, setSelectedCustomer,
+    priceTier, setPriceTier,
     discountInput, discountType, setDiscountInput, setDiscountType,
     activeSlot,
   } = useCart()
+  const { patchStocks } = useDrugs()
+  const { settings } = useSettings()
   const showToast = useToast()
   const [received, setReceived] = useState('')
   const [loading, setLoading] = useState(false)
@@ -38,7 +44,8 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
 
   // discount calculations
   // total (from context) = grossSubtotal - totalItemDiscount (effective subtotal)
-  const grossSubtotal = items.reduce((s, i) => s + getDrugSellPrice(i) * i.qty, 0)
+  // All per-unit values are in BASE units resolved at the current tier.
+  const grossSubtotal = items.reduce((s, i) => s + itemBasePrice(i, priceTier) * i.qty, 0)
   const totalItemDiscount = items.reduce((s, i) => s + (i.itemDiscount || 0) * i.qty, 0)
   const discountValue = parseFloat(discountInput) || 0
   const cartDiscountAmt = discountType === '%'
@@ -52,15 +59,31 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
     if (items.length === 0) { showToast('ตะกร้าว่างเปล่า', 'error'); return }
     if (!received.trim()) { showToast('กรุณาระบุจำนวนเงินที่รับ', 'error'); return }
     const recv = parseFloat(received)
+    if (!Number.isFinite(recv)) { showToast('จำนวนเงินที่รับไม่ถูกต้อง', 'error'); return }
     if (recv < netTotal) { showToast('จำนวนเงินที่รับน้อยกว่ายอดสุทธิ', 'error'); return }
-    const saleItems = items.map(i => ({
-      drug_id: i.id,
-      qty: i.qty,
-      price: Math.max(0, getDrugSellPrice(i) - (i.itemDiscount || 0)),
-    }))
+    const saleItems = items.map(i => {
+      // Everything here is per BASE unit resolved at the cart's current tier.
+      // Backend revalidates against drug.prices so the client can't spoof.
+      const original = itemBasePrice(i, priceTier)
+      const itemDisc = i.itemDiscount || 0
+      const unit = i.selected_unit ?? ''
+      const factor = i.selected_unit_factor ?? 1
+      return {
+        drug_id: i.id,
+        qty: i.qty,
+        price: Math.max(0, original - itemDisc),
+        original_price: original,
+        item_discount: itemDisc,
+        price_tier: priceTier,
+        ...(unit ? { unit, unit_factor: factor } : {}),
+      }
+    })
 
-    // Check if any items need KY forms
-    const needsKy = items.some(i => i.report_types?.some(t => ['ky10', 'ky11', 'ky12'].includes(t)))
+    // Check if any items need KY forms. If the shop opted out of compliance
+    // recording (Settings → ขย. → ข้ามบันทึก), skip the modal and go straight
+    // to the normal sale flow.
+    const needsKy = !settings.ky.skip_auto
+      && items.some(i => i.report_types?.some(t => ['ky10', 'ky11', 'ky12'].includes(t)))
     if (needsKy) {
       onKyRequired({
         cartItems: [...items],
@@ -85,7 +108,12 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
       })
       clearCart()
       setReceived('')
-      onReloadDrugs()
+      // Optimistic patch: update only the drugs we sold. Skip full reload.
+      if (result.stock_updates && result.stock_updates.length > 0) {
+        patchStocks(result.stock_updates)
+      } else {
+        onReloadDrugs()
+      }
       onCheckoutDone(result, [...items])
     } catch (e: unknown) {
       showToast((e as Error).message || 'เกิดข้อผิดพลาด', 'error')
@@ -117,6 +145,27 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100">
         <h2 className="font-semibold text-gray-800">ตะกร้า</h2>
+      </div>
+
+      {/* Price tier toggle — reprices every line when changed */}
+      <div className="px-4 pt-3 pb-2 border-b border-gray-100">
+        <div className="text-[11px] text-gray-400 mb-1">ราคา</div>
+        <div className="grid grid-cols-3 gap-1">
+          {TIER_OPTIONS.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setPriceTier(t.id)}
+              className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                priceTier === t.id
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Customer selector */}
@@ -189,7 +238,12 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
         {items.length === 0
           ? <div className="text-center text-gray-400 text-sm py-8">ยังไม่มีรายการ</div>
           : items.map(item => (
-              <CartItemRow key={item.id} item={item} onChangeQty={changeQty} onDiscount={setDiscountItem} />
+              <CartItemRow
+                key={`${item.id}::${item.selected_unit ?? ''}`}
+                item={item}
+                onChangeQty={changeQty}
+                onDiscount={setDiscountItem}
+              />
             ))
         }
       </div>

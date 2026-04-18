@@ -1,19 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
 import { getExpiringLots, type ExpiringLot } from '../../api/lots'
+import { useSettings } from '../../context/SettingsContext'
 
 type Group = { label: string; color: string; dot: string; items: ExpiringLot[] }
 
-function groupLots(lots: ExpiringLot[]): Group[] {
+function groupLots(lots: ExpiringLot[], maxDays: number): Group[] {
   const expired  = lots.filter(l => l.days_left < 0)
   const urgent   = lots.filter(l => l.days_left >= 0 && l.days_left <= 7)
   const warning  = lots.filter(l => l.days_left >= 8 && l.days_left <= 30)
   const notice   = lots.filter(l => l.days_left >= 31)
 
   const groups: Group[] = []
-  if (expired.length)  groups.push({ label: 'หมดอายุแล้ว',  color: 'text-red-600',    dot: 'bg-red-500',    items: expired })
-  if (urgent.length)   groups.push({ label: '≤ 7 วัน',      color: 'text-orange-600', dot: 'bg-orange-400', items: urgent })
-  if (warning.length)  groups.push({ label: '≤ 30 วัน',     color: 'text-yellow-600', dot: 'bg-yellow-400', items: warning })
-  if (notice.length)   groups.push({ label: '≤ 60 วัน',     color: 'text-blue-600',   dot: 'bg-blue-400',   items: notice })
+  if (expired.length)  groups.push({ label: 'หมดอายุแล้ว',        color: 'text-red-600',    dot: 'bg-red-500',    items: expired })
+  if (urgent.length)   groups.push({ label: '≤ 7 วัน',            color: 'text-orange-600', dot: 'bg-orange-400', items: urgent })
+  if (warning.length)  groups.push({ label: '≤ 30 วัน',           color: 'text-yellow-600', dot: 'bg-yellow-400', items: warning })
+  if (notice.length)   groups.push({ label: `≤ ${maxDays} วัน`,   color: 'text-blue-600',   dot: 'bg-blue-400',   items: notice })
   return groups
 }
 
@@ -24,16 +25,19 @@ function daysLabel(d: number): string {
 }
 
 export default function ExpiryAlert() {
+  const { settings } = useSettings()
   const [lots, setLots]     = useState<ExpiringLot[]>([])
   const [open, setOpen]     = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
+  // Use tenant's expiring_days setting; re-fetch when it changes.
+  const expiringDays = settings.stock.expiring_days || 60
   useEffect(() => {
-    const refresh = () => getExpiringLots(60).then(setLots).catch(() => {})
+    const refresh = () => getExpiringLots(expiringDays).then(setLots).catch(() => {})
     refresh()
     window.addEventListener('pharmacy:stock-changed', refresh)
     return () => window.removeEventListener('pharmacy:stock-changed', refresh)
-  }, [])
+  }, [expiringDays])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -47,7 +51,7 @@ export default function ExpiryAlert() {
 
   const hasExpired = lots.some(l => l.days_left < 0)
   const badgeColor = hasExpired ? 'bg-red-500' : 'bg-orange-400'
-  const groups = groupLots(lots)
+  const groups = groupLots(lots, expiringDays)
 
   return (
     <div ref={ref} className="relative">

@@ -1,3 +1,21 @@
+/** 3-tier price set. 0 on regular/wholesale means "not set" → fallback to retail. */
+export interface PriceTiers {
+  retail: number
+  regular: number
+  wholesale: number
+}
+
+export type PriceTier = 'retail' | 'regular' | 'wholesale'
+
+/** Alternate selling unit. 1 alt unit = `factor` base units. */
+export interface AltUnit {
+  name: string
+  factor: number       // >= 2
+  sell_price: number   // per alt unit — mirrored from prices.retail
+  prices?: PriceTiers
+  barcode?: string     // optional, for scanner matching (Phase 2)
+}
+
 export interface Drug {
   id: string
   name: string
@@ -15,6 +33,8 @@ export interface Drug {
   reg_no: string
   unit: string
   report_types: string[]
+  alt_units?: AltUnit[]
+  prices?: PriceTiers
   created_at: string
 }
 
@@ -36,6 +56,8 @@ export interface DrugInput {
   reg_no: string
   unit: string
   report_types: string[]
+  alt_units?: AltUnit[]
+  prices?: PriceTiers
   create_lot?: DrugLotInput
 }
 
@@ -51,6 +73,8 @@ export interface DrugUpdate {
   reg_no: string
   unit: string
   report_types: string[]
+  alt_units?: AltUnit[]
+  prices?: PriceTiers
 }
 
 export interface DrugLot {
@@ -64,6 +88,20 @@ export interface DrugLot {
   quantity: number            // original imported qty
   remaining: number           // current qty in this lot
   created_at: string
+}
+
+export interface ReorderSuggestion {
+  drug_id: string
+  drug_name: string
+  unit: string
+  current_stock: number
+  min_stock: number
+  qty_sold: number           // total over lookback window
+  avg_daily_sale: number
+  days_left: number          // 9999 sentinel = no sales / infinite cover
+  suggested_qty: number
+  cost_price: number
+  sell_price: number
 }
 
 export interface DrugLotInput {

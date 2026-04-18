@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "devperpos"
+  },
+  "targets": {
+    "devperpos": {
+      "hosting": {
+        "dpharm": [
+          "dpharm"
+        ]
+      }
+    }
+  }
+}

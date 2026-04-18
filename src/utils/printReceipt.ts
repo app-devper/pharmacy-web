@@ -1,7 +1,14 @@
+export interface PrintReceiptItem {
+  name:  string
+  qty:   number           // number in the DISPLAY unit (e.g. 2 for "2 แผง")
+  price: number           // per DISPLAY unit
+  unit?: string           // display unit name — appended to qty (e.g. "แผง")
+}
+
 export interface PrintReceiptOptions {
   billNo:     string
   date:       string
-  items:      { name: string; qty: number; price: number }[]
+  items:      PrintReceiptItem[]
   discount:   number
   total:      number
   received:   number
@@ -9,6 +16,20 @@ export interface PrintReceiptOptions {
   paperWidth?: '58mm' | '80mm'   // default 58mm
   shopName?:   string
   shopAddress?: string
+  shopPhone?:   string
+  shopTaxId?:   string
+  headerText?:  string           // tagline above items (optional)
+  footerText?:  string           // thank-you message at bottom
+  pharmacistName?: string        // printed below totals when set
+}
+
+function esc(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 /**
@@ -19,8 +40,13 @@ export function printReceipt(opts: PrintReceiptOptions) {
   const {
     billNo, date, items, discount, total, received, change,
     paperWidth = '58mm',
-    shopName    = 'ร้านยา เฮลท์ตี้ฟาร์ม',
-    shopAddress = 'อุบลราชธานี',
+    shopName       = 'ร้านยา',
+    shopAddress    = '',
+    shopPhone      = '',
+    shopTaxId      = '',
+    headerText     = '',
+    footerText     = 'ขอบคุณที่ใช้บริการ',
+    pharmacistName = '',
   } = opts
 
   const fmt = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -28,13 +54,14 @@ export function printReceipt(opts: PrintReceiptOptions) {
   const itemRows = items
     .map(i => {
       const subtotal = i.price * i.qty
+      const qtyLabel = i.unit ? `${i.qty} ${esc(i.unit)}` : String(i.qty)
       return `
         <div class="row">
-          <span class="item-name">${i.name}</span>
+          <span class="item-name">${esc(i.name)}</span>
           <span class="item-right">฿${fmt(subtotal)}</span>
         </div>
         <div class="row item-detail">
-          <span>${i.qty} × ฿${fmt(i.price)}</span>
+          <span>${qtyLabel} × ฿${fmt(i.price)}</span>
         </div>`
     })
     .join('')
@@ -43,11 +70,19 @@ export function printReceipt(opts: PrintReceiptOptions) {
     ? `<div class="row discount"><span>ส่วนลด</span><span>-฿${fmt(discount)}</span></div>`
     : ''
 
+  const addressLine   = shopAddress ? `<div class="center small">${esc(shopAddress)}</div>` : ''
+  const phoneLine     = shopPhone   ? `<div class="center small">โทร. ${esc(shopPhone)}</div>` : ''
+  const taxIdLine     = shopTaxId   ? `<div class="center small">เลขผู้เสียภาษี ${esc(shopTaxId)}</div>` : ''
+  const headerLine    = headerText  ? `<div class="center small italic">${esc(headerText)}</div>` : ''
+  const pharmacistLine = pharmacistName
+    ? `<div class="small" style="margin-top:2mm;">เภสัชกร: ${esc(pharmacistName)}</div>`
+    : ''
+
   const html = `<!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="utf-8">
-<title>ใบเสร็จ ${billNo}</title>
+<title>ใบเสร็จ ${esc(billNo)}</title>
 <style>
   @page {
     margin: 0;
@@ -63,6 +98,7 @@ export function printReceipt(opts: PrintReceiptOptions) {
   }
   .center { text-align: center; }
   .bold   { font-weight: bold; }
+  .italic { font-style: italic; }
   .large  { font-size: ${paperWidth === '80mm' ? '15px' : '13px'}; }
   .small  { font-size: ${paperWidth === '80mm' ? '11px' : '9px'}; color: #333; }
   .hr     { border: none; border-top: 1px dashed #000; margin: 3mm 0; }
@@ -76,11 +112,14 @@ export function printReceipt(opts: PrintReceiptOptions) {
 </style>
 </head>
 <body>
-  <div class="center bold large">${shopName}</div>
-  <div class="center small">${shopAddress}</div>
+  <div class="center bold large">${esc(shopName)}</div>
+  ${addressLine}
+  ${phoneLine}
+  ${taxIdLine}
+  ${headerLine}
   <hr class="hr">
-  <div class="small">วันที่: ${date}</div>
-  <div class="small">เลขที่: ${billNo}</div>
+  <div class="small">วันที่: ${esc(date)}</div>
+  <div class="small">เลขที่: ${esc(billNo)}</div>
   <hr class="hr">
   ${itemRows}
   <hr class="hr">
@@ -97,8 +136,9 @@ export function printReceipt(opts: PrintReceiptOptions) {
     <span>เงินทอน</span>
     <span>฿${fmt(change)}</span>
   </div>
+  ${pharmacistLine}
   <hr class="hr">
-  <div class="footer">ขอบคุณที่ใช้บริการ</div>
+  <div class="footer">${esc(footerText)}</div>
 </body>
 </html>`
 

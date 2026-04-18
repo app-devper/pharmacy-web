@@ -8,9 +8,11 @@ import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import { useEffect } from 'react'
 import { fmtDate, fmtMoney } from '../utils/formatters'
+import { useDrugs } from '../hooks/useDrugs'
 
 export default function ImportPage() {
   const showToast = useToast()
+  const { reload: reloadDrugs } = useDrugs()
   const [orders, setOrders] = useState<PurchaseOrderSummary[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -47,6 +49,9 @@ export default function ImportPage() {
       await confirmImport(po.id)
       showToast(`ยืนยันสำเร็จ — สต็อกเพิ่มแล้ว`)
       reload()
+      // Confirming creates DrugLots + bumps drug.stock → refresh shared drug cache
+      // so SellPage/StockPage reflect the new totals without a manual refresh.
+      reloadDrugs()
     } catch (e) { showToast((e as Error).message, 'error') }
   }
 

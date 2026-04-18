@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import type { SaleResponse, CartItem } from '../types/sale'
-import type { Drug } from '../types/drug'
+import type { Drug, AltUnit } from '../types/drug'
 import { useDrugs } from '../hooks/useDrugs'
 import { useCustomers } from '../hooks/useCustomers'
 import { useCart } from '../context/CartContext'
@@ -15,7 +15,7 @@ import KySaleModal, { type CheckoutData } from '../components/sell/KySaleModal'
 import AddCustomerModal from '../components/customers/AddCustomerModal'
 
 export default function SellPage() {
-  const { drugs, loading, reload } = useDrugs()
+  const { drugs, loading, reload, patchStocks } = useDrugs()
   const { reload: reloadCustomers } = useCustomers()
   const { addToCart, clearCart } = useCart()
   const showToast = useToast()
@@ -62,7 +62,13 @@ export default function SellPage() {
         </div>
       )}
       <div className="flex flex-1 overflow-hidden">
-        <DrugGrid drugs={drugs} loading={loading} onAdd={(drug: Drug) => addToCart(drug)} scannerActive highlightedId={lastScannedId} />
+        <DrugGrid
+          drugs={drugs}
+          loading={loading}
+          onAdd={(drug: Drug, altUnit?: AltUnit | null) => addToCart(drug, altUnit ?? null)}
+          scannerActive
+          highlightedId={lastScannedId}
+        />
         <Cart
           onCheckoutDone={handleCheckoutDone}
           onReloadDrugs={reload}
@@ -83,7 +89,11 @@ export default function SellPage() {
           onDone={(result, cartItems) => {
             setKyData(null)
             setReceipt({ result, items: cartItems })
-            reload()
+            if (result.stock_updates && result.stock_updates.length > 0) {
+              patchStocks(result.stock_updates)
+            } else {
+              reload()
+            }
           }}
           onCancel={() => setKyData(null)}
         />

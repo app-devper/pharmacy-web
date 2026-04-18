@@ -1,12 +1,12 @@
-import { useState } from 'react'
-import { Drug, DRUG_TYPES } from '../../types/drug'
+import { useState, useMemo } from 'react'
+import { Drug, AltUnit, DRUG_TYPES } from '../../types/drug'
 import DrugCard from './DrugCard'
 import Spinner from '../ui/Spinner'
 
 interface Props {
   drugs: Drug[]
   loading: boolean
-  onAdd: (drug: Drug) => void
+  onAdd: (drug: Drug, altUnit?: AltUnit | null) => void
   scannerActive?: boolean
   highlightedId?: string | null
 }
@@ -15,14 +15,16 @@ export default function DrugGrid({ drugs, loading, onAdd, scannerActive, highlig
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
 
-  const q = search.toLowerCase()
-  const filtered = drugs.filter(d => {
-    const matchSearch = d.name.toLowerCase().includes(q)
-      || (d.generic_name ?? '').toLowerCase().includes(q)
-      || (d.barcode ?? '').toLowerCase().includes(q)
-    const matchType = !typeFilter || d.type === typeFilter
-    return matchSearch && matchType
-  })
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    return drugs.filter(d => {
+      const matchSearch = d.name.toLowerCase().includes(q)
+        || (d.generic_name ?? '').toLowerCase().includes(q)
+        || (d.barcode ?? '').toLowerCase().includes(q)
+      const matchType = !typeFilter || d.type === typeFilter
+      return matchSearch && matchType
+    })
+  }, [drugs, search, typeFilter])
 
   if (loading) return <div className="flex-1"><Spinner /></div>
 

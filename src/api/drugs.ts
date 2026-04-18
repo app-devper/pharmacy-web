@@ -1,9 +1,15 @@
 import { apiFetch } from './client'
-import { Drug, DrugInput, DrugUpdate, DrugLot, DrugLotInput } from '../types/drug'
+import { Drug, DrugInput, DrugUpdate, DrugLot, DrugLotInput, ReorderSuggestion } from '../types/drug'
 
+/**
+ * Fetch the full drug list. Used once by DrugsProvider; all pages share the cache.
+ * Backend also supports `?fields=compact` projection for other consumers that want
+ * a slimmer payload (e.g. direct scripts), but the in-app cache needs full fields.
+ */
 export const getDrugs = () => apiFetch<Drug[]>('/api/drugs')
 
-export const getLowStockDrugs = () => apiFetch<Drug[]>('/api/drugs/low-stock')
+export const getReorderSuggestions = (days = 30, lookahead = 14) =>
+  apiFetch<ReorderSuggestion[]>(`/api/drugs/reorder-suggestions?days=${days}&lookahead=${lookahead}`)
 
 export const addDrug = (data: DrugInput) =>
   apiFetch<Drug>('/api/drugs', { method: 'POST', body: JSON.stringify(data) })

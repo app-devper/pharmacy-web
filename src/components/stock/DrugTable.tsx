@@ -7,6 +7,7 @@ import LotListModal from './LotListModal'
 import StockAdjustmentModal from './StockAdjustmentModal'
 import AdjustmentLogModal from './AdjustmentLogModal'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
+import { useDrugs } from '../../hooks/useDrugs'
 
 interface Props {
   drugs: Drug[]
@@ -15,18 +16,16 @@ interface Props {
 
 export default function DrugTable({ drugs, onReload }: Props) {
   const isAdmin = useIsAdmin()
+  const { patchStocks } = useDrugs()
   const [editing, setEditing]       = useState<Drug | null>(null)
   const [lotDrug, setLotDrug]       = useState<Drug | null>(null)
   const [adjustDrug, setAdjustDrug] = useState<Drug | null>(null)
   const [logDrug, setLogDrug]       = useState<Drug | null>(null)
 
-  // Local overrides: update stock display immediately after adjustment (no full reload)
-  const [localOverrides, setLocalOverrides] = useState<Record<string, Drug>>({})
-
-  const displayDrug = (d: Drug) => localOverrides[d.id] ?? d
-
   const handleAdjusted = (updated: Drug) => {
-    setLocalOverrides(prev => ({ ...prev, [updated.id]: updated }))
+    // Sync shared cache so SellPage (and anywhere else using useDrugs) reflects
+    // the new stock immediately — no need for localOverrides anymore.
+    patchStocks([{ drug_id: updated.id, new_stock: updated.stock }])
     setAdjustDrug(null)
     if (logDrug?.id === updated.id) setLogDrug(updated)
   }
@@ -51,8 +50,7 @@ export default function DrugTable({ drugs, onReload }: Props) {
             </tr>
           </thead>
           <tbody>
-            {drugs.map(raw => {
-              const drug = displayDrug(raw)
+            {drugs.map(drug => {
               return (
                 <tr key={drug.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="py-3 px-3 font-medium text-gray-800">
@@ -69,30 +67,30 @@ export default function DrugTable({ drugs, onReload }: Props) {
                   <td className="py-3 px-3 text-right font-medium text-gray-800">
                     ฿{getDrugSellPrice(drug).toLocaleString()}
                   </td>
-                  <td className="py-3 px-3 text-right font-medium">{drug.stock} {drug.unit}</td>
-                  <td className="py-3 px-3"><StockBadge stock={drug.stock} /></td>
+                  <td className="py-3 px-3 text-right font-medium whitespace-nowrap">{drug.stock} {drug.unit}</td>
+                  <td className="py-3 px-3 whitespace-nowrap"><StockBadge stock={drug.stock} minStock={drug.min_stock} /></td>
                   <td className="py-3 px-3 text-gray-400 text-xs">{drug.barcode || '—'}</td>
-                  <td className="py-3 px-3">
-                    <div className="flex gap-2">
+                  <td className="py-3 px-3 whitespace-nowrap">
+                    <div className="flex gap-2 flex-nowrap">
                       {isAdmin && (
                         <button
                           onClick={() => setEditing(drug)}
-                          className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
+                          className="text-xs text-gray-500 hover:text-gray-700 hover:underline whitespace-nowrap"
                         >แก้ไข</button>
                       )}
                       <button
                         onClick={() => setLotDrug(drug)}
-                        className="text-xs text-blue-600 hover:underline"
+                        className="text-xs text-blue-600 hover:underline whitespace-nowrap"
                       >ล็อต</button>
                       {isAdmin && (
                         <button
                           onClick={() => setAdjustDrug(drug)}
-                          className="text-xs text-emerald-600 hover:underline"
+                          className="text-xs text-emerald-600 hover:underline whitespace-nowrap"
                         >ปรับสต็อก</button>
                       )}
                       <button
                         onClick={() => setLogDrug(drug)}
-                        className="text-xs text-gray-400 hover:text-gray-600 hover:underline"
+                        className="text-xs text-gray-400 hover:text-gray-600 hover:underline whitespace-nowrap"
                       >ประวัติ</button>
                     </div>
                   </td>

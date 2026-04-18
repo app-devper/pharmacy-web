@@ -8,6 +8,8 @@ import Spinner from '../ui/Spinner'
 import VoidSaleModal from './VoidSaleModal'
 import ReturnSaleModal from './ReturnSaleModal'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
+import { useSettings } from '../../context/SettingsContext'
+import { getTierLabel } from '../../utils/pricing'
 
 interface Props {
   sale: Sale
@@ -18,6 +20,7 @@ interface Props {
 export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props) {
   const showToast = useToast()
   const isAdmin = useIsAdmin()
+  const { settings } = useSettings()
   const [items, setItems]     = useState<SaleItem[]>([])
   const [returns, setReturns] = useState<DrugReturn[]>([])
   const [loading, setLoading] = useState(true)
@@ -36,14 +39,38 @@ export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props)
   }, [sale.id, showToast])
 
   const handlePrint = () => {
+    if (items.length === 0) {
+      showToast('กำลังโหลดรายการ รอสักครู่', 'error')
+      return
+    }
     printReceipt({
       billNo:   sale.bill_no,
       date:     fmtDateTime(sale.sold_at),
-      items:    items.map(i => ({ name: i.drug_name, qty: i.qty, price: i.price })),
+      items:    items.map(i => {
+        const factor = i.unit_factor && i.unit_factor > 1 ? i.unit_factor : 1
+        return {
+          name:  i.drug_name,
+          qty:   Math.floor(i.qty / factor),
+          price: i.price * factor,
+          unit:  i.unit || undefined,
+        }
+      }),
       discount: sale.discount,
       total:    sale.total,
       received: sale.received,
       change:   sale.change,
+      // Pull current shop info from settings so the re-print has the same
+      // header/footer/pharmacist as a fresh receipt — not the built-in defaults.
+      paperWidth:     settings.receipt.paper_width === '80' ? '80mm' : '58mm',
+      shopName:       settings.store.name,
+      shopAddress:    settings.store.address,
+      shopPhone:      settings.store.phone,
+      shopTaxId:      settings.store.tax_id,
+      headerText:     settings.receipt.header,
+      footerText:     settings.receipt.footer,
+      pharmacistName: settings.receipt.show_pharmacist && settings.pharmacist.name
+        ? settings.pharmacist.name + (settings.pharmacist.license_no ? ` (${settings.pharmacist.license_no})` : '')
+        : '',
     })
   }
 
@@ -52,6 +79,10 @@ export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props)
     setShowReturn(false)
     onSaleChanged?.()
   }
+
+  // Detect a single consistent price tier for this sale to show as a header badge.
+  const tierSet = new Set(items.map(i => i.price_tier || 'retail').filter(Boolean))
+  const soleTier = tierSet.size === 1 ? Array.from(tierSet)[0] : null
 
   return (
     <>
@@ -74,6 +105,11 @@ export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props)
               {sale.voided && (
                 <span className="px-2 py-0.5 bg-red-100 text-red-600 text-xs font-semibold rounded-full">
                   ยกเลิกแล้ว
+                </span>
+              )}
+              {soleTier && soleTier !== 'retail' && (
+                <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full">
+                  {getTierLabel(soleTier)}
                 </span>
               )}
             </div>
@@ -113,16 +149,24 @@ export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props)
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map(item => (
-                    <tr key={item.id} className="border-t border-gray-50">
-                      <td className="py-2.5 px-5 text-gray-800 font-medium">{item.drug_name}</td>
-                      <td className="py-2.5 px-3 text-right text-gray-600">{item.qty}</td>
-                      <td className="py-2.5 px-3 text-right text-gray-600" style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(item.price)}</td>
-                      <td className="py-2.5 px-5 text-right font-semibold text-gray-800" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                        {fmtMoney(item.subtotal)}
-                      </td>
-                    </tr>
-                  ))}
+                  {items.map(item => {
+                    const factor = item.unit_factor && item.unit_factor > 1 ? item.unit_factor : 1
+                    const displayQty = factor > 1 ? Math.floor(item.qty / factor) : item.qty
+                    const displayPrice = item.price * factor
+                    return (
+                      <tr key={item.id} className="border-t border-gray-50">
+                        <td className="py-2.5 px-5 text-gray-800 font-medium">
+                          {item.drug_name}
+                          {item.unit && <span className="ml-1 text-xs text-indigo-500">· {item.unit}</span>}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-gray-600">{displayQty}</td>
+                        <td className="py-2.5 px-3 text-right text-gray-600" style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(displayPrice)}</td>
+                        <td className="py-2.5 px-5 text-right font-semibold text-gray-800" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          {fmtMoney(item.subtotal)}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             )}

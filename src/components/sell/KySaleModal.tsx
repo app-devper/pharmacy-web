@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createSale } from '../../api/sales'
 import { addKy10, addKy11, addKy12 } from '../../api/kyforms'
 import { useCart } from '../../context/CartContext'
+import { useSettings } from '../../context/SettingsContext'
 import { useToast } from '../../hooks/useToast'
 import { getDrugSellPrice } from '../../types/drug'
 import type { CartItem, SaleItemInput, SaleResponse } from '../../types/sale'
@@ -46,6 +47,7 @@ const inp = 'w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focu
 
 export default function KySaleModal({ data, onDone, onCancel }: Props) {
   const { clearCart, setSelectedCustomer } = useCart()
+  const { settings } = useSettings()
   const showToast = useToast()
   const [saving, setSaving] = useState(false)
 
@@ -56,14 +58,20 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
 
   const prefillName = data.selectedCustomer?.name ?? ''
 
-  // ขย.10 form state
+  // ขย.10 form state — address defaults from Settings → ขย. → "ที่อยู่ผู้ซื้อเริ่มต้น"
   const [f10, setF10] = useState({
-    buyer_name: prefillName, buyer_address: '', rx_no: '', doctor: '', balance: '0',
+    buyer_name: prefillName,
+    buyer_address: settings.ky.default_buyer_address,
+    rx_no: '',
+    doctor: '',
+    balance: '0',
   })
 
-  // ขย.11 form state
+  // ขย.11 form state — pharmacist auto-fills from Settings → เภสัชกร
   const [f11, setF11] = useState({
-    buyer_name: prefillName, purpose: '', pharmacist: '',
+    buyer_name: prefillName,
+    purpose: '',
+    pharmacist: settings.pharmacist.name,
   })
 
   // ขย.12 form state

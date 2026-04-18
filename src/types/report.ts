@@ -35,6 +35,13 @@ export interface MonthlyData {
   profit: number
 }
 
+export interface Dashboard {
+  summary: ReportSummary
+  daily: DailyData[]
+  monthly: MonthlyData[]
+  recent_sales: Sale[]
+}
+
 export interface EodReport {
   date: string           // YYYY-MM-DD
   bill_count: number

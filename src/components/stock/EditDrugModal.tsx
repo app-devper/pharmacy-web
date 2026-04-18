@@ -5,6 +5,7 @@ import { updateDrug } from '../../api/drugs'
 import { useToast } from '../../hooks/useToast'
 import { DRUG_TYPES, DRUG_UNITS, KY_REPORT_OPTIONS, getDrugSellPrice } from '../../types/drug'
 import type { Drug } from '../../types/drug'
+import AltUnitsEditor, { type AltUnitDraft, validateAltUnits } from './AltUnitsEditor'
 
 interface Props {
   drug: Drug
@@ -14,19 +15,31 @@ interface Props {
 
 export default function EditDrugModal({ drug, onClose, onSaved }: Props) {
   const showToast = useToast()
+  const retailInit = drug.prices?.retail || getDrugSellPrice(drug)
   const [form, setForm] = useState({
     name: drug.name,
     generic_name: drug.generic_name ?? '',
     type: drug.type,
     strength: drug.strength ?? '',
     barcode: drug.barcode ?? '',
-    sell_price: String(getDrugSellPrice(drug)),
+    retail:    String(retailInit),
+    regular:   drug.prices?.regular   ? String(drug.prices.regular)   : '',
+    wholesale: drug.prices?.wholesale ? String(drug.prices.wholesale) : '',
     cost_price: String(drug.cost_price ?? ''),
     min_stock: String(drug.min_stock ?? 0),
     reg_no: drug.reg_no ?? '',
     unit: drug.unit,
   })
   const [reportTypes, setReportTypes] = useState<string[]>(drug.report_types ?? [])
+  const [altUnits, setAltUnits] = useState<AltUnitDraft[]>(
+    (drug.alt_units ?? []).map(a => ({
+      name: a.name,
+      factor: String(a.factor),
+      retail:    String(a.prices?.retail    ?? a.sell_price ?? ''),
+      regular:   a.prices?.regular   ? String(a.prices.regular)   : '',
+      wholesale: a.prices?.wholesale ? String(a.prices.wholesale) : '',
+    })),
+  )
   const [loading, setLoading] = useState(false)
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
@@ -38,14 +51,23 @@ export default function EditDrugModal({ drug, onClose, onSaved }: Props) {
 
   const handleSave = async () => {
     if (!form.name) { showToast('กรุณากรอกชื่อยา', 'error'); return }
+    const validatedAlts = validateAltUnits(altUnits, form.unit)
+    if (validatedAlts.error) { showToast(validatedAlts.error, 'error'); return }
     setLoading(true)
     try {
+      const retail = +form.retail || 0
       await updateDrug(drug.id, {
         name: form.name, generic_name: form.generic_name,
         type: form.type, strength: form.strength, barcode: form.barcode,
-        sell_price: +form.sell_price || 0, cost_price: +form.cost_price || 0,
+        sell_price: retail, cost_price: +form.cost_price || 0,
         min_stock: +form.min_stock || 0, reg_no: form.reg_no, unit: form.unit,
         report_types: reportTypes,
+        alt_units: validatedAlts.units,
+        prices: {
+          retail,
+          regular:   +form.regular   || 0,
+          wholesale: +form.wholesale || 0,
+        },
       })
       showToast('แก้ไขยาสำเร็จ')
       onSaved()
@@ -94,7 +116,32 @@ export default function EditDrugModal({ drug, onClose, onSaved }: Props) {
             </datalist>
           </div>
           {field('ราคาทุน (฿)', 'cost_price', 'number')}
-          {field('ราคาขาย (฿)', 'sell_price', 'number')}
+          <div />
+          <div className="col-span-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              ราคาขาย (฿) <span className="text-gray-400 font-normal">— หน้าร้านบังคับ · อื่นว่างได้</span>
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <div className="text-[10px] text-gray-400 mb-0.5">หน้าร้าน *</div>
+                <input type="number" min="0" step="0.01" value={form.retail}
+                  onChange={e => set('retail', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:border-blue-400" />
+              </div>
+              <div>
+                <div className="text-[10px] text-gray-400 mb-0.5">ประจำ</div>
+                <input type="number" min="0" step="0.01" value={form.regular}
+                  onChange={e => set('regular', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:border-blue-400" />
+              </div>
+              <div>
+                <div className="text-[10px] text-gray-400 mb-0.5">ขายส่ง</div>
+                <input type="number" min="0" step="0.01" value={form.wholesale}
+                  onChange={e => set('wholesale', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:border-blue-400" />
+              </div>
+            </div>
+          </div>
           {field('แจ้งเตือนเมื่อสต็อก ≤', 'min_stock', 'number')}
           {field('เลขทะเบียน', 'reg_no')}
         </div>
@@ -128,6 +175,13 @@ export default function EditDrugModal({ drug, onClose, onSaved }: Props) {
             ))}
           </div>
         </div>
+
+        {/* Alt units (multi-unit pricing) */}
+        <AltUnitsEditor
+          baseUnit={form.unit || 'หน่วย'}
+          value={altUnits}
+          onChange={setAltUnits}
+        />
 
         <div className="flex gap-2 pt-2">
           <Button variant="secondary" className="flex-1" onClick={onClose}>ยกเลิก</Button>

@@ -1,8 +1,12 @@
 import { apiFetch } from './client'
-import { ReportSummary, DailyData, EodReport, TopDrug, SlowDrug, MonthlyData } from '../types/report'
+import { ReportSummary, DailyData, EodReport, TopDrug, SlowDrug, MonthlyData, Dashboard } from '../types/report'
 import type { ProfitReport } from '../types/profitReport'
 
 export const getSummary = () => apiFetch<ReportSummary>('/api/report/summary')
+
+/** Combined endpoint that returns summary + daily + monthly + recent_sales in one round-trip. */
+export const getDashboard = (days = 7) =>
+  apiFetch<Dashboard>(`/api/report/dashboard?days=${days}`)
 
 export const getDaily = (days = 7) => apiFetch<DailyData[]>(`/api/report/daily?days=${days}`)
 

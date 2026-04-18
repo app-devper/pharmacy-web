@@ -101,6 +101,43 @@ npm run preview # preview production build
 
 ---
 
+## Deploy (Firebase Hosting)
+
+ระบบถูก deploy ผ่าน Firebase Hosting โดยใช้ hosting target ชื่อ `dpharm`
+
+### ข้อกำหนด
+
+- ติดตั้ง Firebase CLI: `npm install -g firebase-tools`
+- Login: `firebase login`
+- ต้องมีสิทธิ์ใน Firebase project `devperpos`
+
+### ไฟล์ config
+
+| ไฟล์ | หน้าที่ |
+|------|--------|
+| `firebase.json` | ตั้งค่า hosting: `public: dist`, SPA rewrite → `/index.html`, target `dpharm` |
+| `.firebaserc` | ผูก default project = `devperpos` และ target `dpharm` → site `dpharm` |
+
+### ขั้นตอน Deploy
+
+```bash
+npm run build
+firebase deploy --only hosting:dpharm
+```
+
+### URL
+
+- Production: https://dpharm.web.app
+- Firebase Console: https://console.firebase.google.com/project/devperpos/overview
+
+### เพิ่ม/เปลี่ยน hosting target
+
+```bash
+firebase target:apply hosting <TARGET_NAME> <SITE_ID>
+```
+
+---
+
 ## Authentication Flow
 
 1. เปิดเว็บ → ถ้าไม่มี token → redirect ไป `/login`

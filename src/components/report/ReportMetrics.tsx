@@ -12,7 +12,7 @@ export default function ReportMetrics({ summary, monthProfit }: Props) {
     { label: 'ยอดขายวันนี้', value: `฿${summary.today_sales.toLocaleString()}`, sub: `${summary.today_bills} รายการ`, color: 'text-blue-600' },
     { label: 'ยอดขายเดือนนี้', value: `฿${summary.month_sales.toLocaleString()}`, sub: 'บาท', color: 'text-indigo-600' },
     { label: hasRealProfit ? 'กำไรเดือนนี้' : 'กำไรโดยประมาณ', value: `฿${profit.toLocaleString()}`, sub: hasRealProfit ? 'รายได้ - ต้นทุน' : 'ประมาณ 30%', color: profit >= 0 ? 'text-green-600' : 'text-red-600' },
-    { label: 'มูลค่าสต็อก', value: `฿${summary.stock_value.toLocaleString()}`, sub: `หมด ${summary.out_stock} / ใกล้หมด ${summary.low_stock}`, color: 'text-purple-600' },
+    { label: 'มูลค่าสต็อก (ต้นทุน)', value: `฿${summary.stock_value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, sub: `หมด ${summary.out_stock} / ใกล้หมด ${summary.low_stock}`, color: 'text-purple-600' },
   ]
 
   return (

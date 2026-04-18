@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import ExpiryAlert from './ExpiryAlert'
-import LowStockAlert from './LowStockAlert'
 import NetworkStatus from './NetworkStatus'
 
 const pageTitles: Record<string, string> = {
@@ -22,6 +21,7 @@ const pageTitles: Record<string, string> = {
   '/users':     'จัดการผู้ใช้งาน',
   '/movements': 'ความเคลื่อนไหวสต็อก',
   '/profile':   'โปรไฟล์ของฉัน',
+  '/settings':  'ตั้งค่าระบบ',
 }
 
 export default function Topbar() {
@@ -55,7 +55,6 @@ export default function Topbar() {
       <h1 className="text-lg font-semibold text-gray-800">{title}</h1>
       <div className="flex items-center gap-4">
         <NetworkStatus />
-        <LowStockAlert />
         <ExpiryAlert />
         <div className="text-sm text-gray-500">{dateStr} {timeStr}</div>
         {user && (

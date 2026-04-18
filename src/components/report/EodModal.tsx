@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import type { EodReport } from '../../types/report'
 import { getEod } from '../../api/report'
 import { exportEodXlsx } from '../../utils/exportXlsx'
-import { exportEodPdf } from '../../utils/exportPdf'
 import Button from '../ui/Button'
 import Spinner from '../ui/Spinner'
 
@@ -136,13 +135,6 @@ export default function EodModal({ onClose }: Props) {
                   onClick={() => exportEodXlsx(report)}
                 >
                   Excel
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={() => exportEodPdf(report)}
-                >
-                  PDF
                 </Button>
                 <Button variant="secondary" className="flex-1" onClick={onClose}>ปิด</Button>
               </div>

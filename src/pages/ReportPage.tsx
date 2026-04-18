@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { ReportSummary, DailyData, MonthlyData } from '../types/report'
 import type { Sale } from '../types/sale'
-import { getSummary, getDaily, getMonthly } from '../api/report'
-import { getSales } from '../api/sales'
+import { getDashboard, getDaily } from '../api/report'
 import { useToast } from '../hooks/useToast'
 import ReportMetrics from '../components/report/ReportMetrics'
 import SalesBarChart from '../components/report/SalesBarChart'
@@ -29,28 +28,35 @@ export default function ReportPage() {
   const [showEod, setShowEod]   = useState(false)
   const showToast = useToast()
 
-  // Reload daily chart when days selector changes
+  // Initial load: ONE HTTP call fetches summary + daily + monthly + recent_sales in parallel on the server
   useEffect(() => {
     let mounted = true
-    getDaily(days)
-      .then(d  => { if (mounted) setDaily(d) })
-      .catch((e: unknown) => { if (mounted) showToast((e as Error).message, 'error') })
-    return () => { mounted = false }
-  }, [days, showToast])
-
-  // Initial full load — getDaily is handled by the effect above
-  useEffect(() => {
     setLoading(true)
-    Promise.all([getSummary(), getMonthly(12), getSales({ limit: 5 })])
-      .then(([s, m, sl]) => {
-        setSummary(s)
-        setMonthly(m)
-        setSales(sl)
+    getDashboard(days)
+      .then(d => {
+        if (!mounted) return
+        setSummary(d.summary)
+        setDaily(d.daily)
+        setMonthly(d.monthly)
+        setSales(d.recent_sales)
       })
-      .catch((e: unknown) => showToast((e as Error).message, 'error'))
-      .finally(() => setLoading(false))
+      .catch((e: unknown) => { if (mounted) showToast((e as Error).message, 'error') })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Days selector only reloads the daily chart (summary+monthly+recent don't depend on days)
+  const isFirstDays = useMemo(() => ({ v: true }), [])
+  useEffect(() => {
+    // Skip the first fire: initial dashboard call already populated `daily` for the default days.
+    if (isFirstDays.v) { isFirstDays.v = false; return }
+    let mounted = true
+    getDaily(days)
+      .then(d => { if (mounted) setDaily(d) })
+      .catch((e: unknown) => { if (mounted) showToast((e as Error).message, 'error') })
+    return () => { mounted = false }
+  }, [days, showToast, isFirstDays])
 
   const currentMonthProfit = useMemo(() => {
     const thisMonth = new Date().toISOString().slice(0, 7)

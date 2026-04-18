@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
+/* Enable the `dark:` Tailwind variant based on our [data-theme="dark"] attribute */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 * {
   box-sizing: border-box;
 }
+
+/* ── Font size scaling — controlled by <html data-font="..."> ─────────────── */
+html[data-font="small"]  { font-size: 14px; }
+html[data-font="normal"] { font-size: 16px; }
+html[data-font="large"]  { font-size: 18px; }
+html[data-font="xl"]     { font-size: 20px; }
 
 body {
   margin: 0;
@@ -14,4 +23,37 @@ body {
 #root {
   width: 100%;
   min-height: 100vh;
+}
+
+/* ── Dark theme — minimal overrides that affect the most common surface/text
+   utility classes without rewriting every component. Deeper per-component
+   dark styling can be added incrementally with Tailwind `dark:` utilities. ── */
+html[data-theme="dark"] body {
+  background: #0f172a;
+  color: #e5e7eb;
+}
+html[data-theme="dark"] .bg-white          { background-color: #1e293b !important; }
+html[data-theme="dark"] .bg-gray-50        { background-color: #0f172a !important; }
+html[data-theme="dark"] .bg-gray-100       { background-color: #1e293b !important; }
+
+html[data-theme="dark"] .border-gray-50,
+html[data-theme="dark"] .border-gray-100,
+html[data-theme="dark"] .border-gray-200   { border-color: #334155 !important; }
+
+html[data-theme="dark"] .text-gray-800     { color: #f1f5f9 !important; }
+html[data-theme="dark"] .text-gray-700     { color: #e5e7eb !important; }
+html[data-theme="dark"] .text-gray-600     { color: #cbd5e1 !important; }
+html[data-theme="dark"] .text-gray-500     { color: #94a3b8 !important; }
+html[data-theme="dark"] .text-gray-400     { color: #64748b !important; }
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+  background-color: #1e293b;
+  color: #e5e7eb;
+  border-color: #334155;
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: #64748b;
 }

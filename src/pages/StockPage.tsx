@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react'
-import type { Drug } from '../types/drug'
+import { useState, useMemo } from 'react'
 import { DRUG_TYPES } from '../types/drug'
-import { getDrugs } from '../api/drugs'
-import { useToast } from '../hooks/useToast'
+import { useDrugs } from '../hooks/useDrugs'
 import StockMetrics from '../components/stock/StockMetrics'
 import DrugTable from '../components/stock/DrugTable'
 import AddDrugModal from '../components/stock/AddDrugModal'
 import ImportDrugsModal from '../components/stock/ImportDrugsModal'
+import ReorderSuggestionsModal from '../components/stock/ReorderSuggestionsModal'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import { exportStockXlsx } from '../utils/exportXlsx'
@@ -14,31 +13,26 @@ import { useIsAdmin } from '../hooks/useIsAdmin'
 
 export default function StockPage() {
   const isAdmin = useIsAdmin()
-  const [drugs, setDrugs] = useState<Drug[]>([])
-  const [loading, setLoading] = useState(true)
+  // Shared drug cache (DrugsContext). Switching between Sell/Stock no longer refetches.
+  const { drugs, loading, reload } = useDrugs()
   const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [showReorder, setShowReorder] = useState(false)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
-  const showToast = useToast()
 
-  const load = async () => {
-    setLoading(true)
-    try { setDrugs(await getDrugs()) }
-    catch (e: unknown) { showToast((e as Error).message, 'error') }
-    finally { setLoading(false) }
-  }
+  const load = () => { reload() }
 
-  useEffect(() => { load() }, [])
-
-  const q = search.toLowerCase()
-  const filtered = drugs.filter(d => {
-    const matchSearch = d.name.toLowerCase().includes(q)
-      || (d.generic_name ?? '').toLowerCase().includes(q)
-      || (d.barcode ?? '').toLowerCase().includes(q)
-    const matchType = !typeFilter || d.type === typeFilter
-    return matchSearch && matchType
-  })
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    return drugs.filter(d => {
+      const matchSearch = d.name.toLowerCase().includes(q)
+        || (d.generic_name ?? '').toLowerCase().includes(q)
+        || (d.barcode ?? '').toLowerCase().includes(q)
+      const matchType = !typeFilter || d.type === typeFilter
+      return matchSearch && matchType
+    })
+  }, [drugs, search, typeFilter])
 
   return (
     <div className="p-6">
@@ -70,10 +64,22 @@ export default function StockPage() {
                 className="border-purple-300 text-purple-700 hover:bg-purple-50">
                 นำเข้า Excel
               </Button>
+              <Button variant="secondary" onClick={() => setShowReorder(true)}
+                className="border-indigo-300 text-indigo-700 hover:bg-indigo-50">
+                🔄 แนะนำสั่งซื้อ
+              </Button>
               <Button onClick={() => setShowAdd(true)}>+ เพิ่มยา</Button>
             </>
           )}
         </div>
+        {!loading && (
+          <div className="px-4 py-2 border-b border-gray-50 text-xs text-gray-500">
+            {search || typeFilter
+              ? <>พบ <span className="font-semibold text-gray-700">{filtered.length.toLocaleString()}</span> รายการ จากทั้งหมด {drugs.length.toLocaleString()}</>
+              : <>ทั้งหมด <span className="font-semibold text-gray-700">{drugs.length.toLocaleString()}</span> รายการ</>
+            }
+          </div>
+        )}
         {loading ? <Spinner /> : <DrugTable drugs={filtered} onReload={load} />}
       </div>
       {showAdd && <AddDrugModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load() }} />}
@@ -81,6 +87,11 @@ export default function StockPage() {
         <ImportDrugsModal
           onClose={() => setShowImport(false)}
           onImported={() => { load() }}
+        />
+      )}
+      {showReorder && (
+        <ReorderSuggestionsModal
+          onClose={() => setShowReorder(false)}
         />
       )}
     </div>

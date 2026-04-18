@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { updateMyInfo, changeMyPassword } from '../api/umUsers'
 import { useToast } from '../hooks/useToast'
+import { usePreferences, type Theme, type FontSize } from '../hooks/usePreferences'
 import Button from '../components/ui/Button'
 
 // ─── Section card wrapper ─────────────────────────────────────────────────────
@@ -168,6 +169,83 @@ function ChangePasswordSection() {
   )
 }
 
+// ─── Preferences (per-browser, localStorage) ─────────────────────────────────
+
+function PreferencesSection() {
+  const { prefs, setTheme, setFontSize } = usePreferences()
+
+  const themes: { id: Theme; label: string; icon: string; desc: string }[] = [
+    { id: 'light', label: 'สว่าง',   icon: '☀️', desc: 'พื้นสีขาว'                },
+    { id: 'dark',  label: 'มืด',      icon: '🌙', desc: 'ลดแสงจ้า ถนอมสายตา'       },
+    { id: 'auto',  label: 'อัตโนมัติ', icon: '🖥️', desc: 'ตามค่าเครื่อง / ระบบ'    },
+  ]
+
+  const fonts: { id: FontSize; label: string; sample: string }[] = [
+    { id: 'small',  label: 'เล็ก',    sample: 'ก'  },
+    { id: 'normal', label: 'ปกติ',    sample: 'ก'  },
+    { id: 'large',  label: 'ใหญ่',    sample: 'ก'  },
+    { id: 'xl',     label: 'ใหญ่มาก', sample: 'ก'  },
+  ]
+  const fontPxSample: Record<FontSize, string> = {
+    small: '14px', normal: '16px', large: '18px', xl: '20px',
+  }
+
+  return (
+    <Section title="การแสดงผล" subtitle="ปรับธีมและขนาดตัวอักษร (บันทึกเฉพาะอุปกรณ์นี้)">
+      {/* Theme */}
+      <div className="mb-5">
+        <label className="block text-xs font-medium text-gray-600 mb-2">ธีม</label>
+        <div className="grid grid-cols-3 gap-2">
+          {themes.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTheme(t.id)}
+              className={`px-3 py-3 rounded-lg border text-left transition-colors ${
+                prefs.theme === t.id
+                  ? 'border-blue-400 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 hover:border-gray-300 text-gray-600'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-0.5">
+                <span aria-hidden="true">{t.icon}</span>
+                <span className="text-sm font-medium">{t.label}</span>
+              </div>
+              <div className="text-xs text-gray-400">{t.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Font size */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-2">
+          ขนาดตัวอักษร <span className="text-gray-400 font-normal">(มีผลทั้งแอป)</span>
+        </label>
+        <div className="grid grid-cols-4 gap-2">
+          {fonts.map(f => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setFontSize(f.id)}
+              className={`px-3 py-3 rounded-lg border transition-colors ${
+                prefs.fontSize === f.id
+                  ? 'border-blue-400 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 hover:border-gray-300 text-gray-600'
+              }`}
+            >
+              <div className="font-bold leading-none mb-1" style={{ fontSize: fontPxSample[f.id] }}>
+                {f.sample}
+              </div>
+              <div className="text-xs">{f.label}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </Section>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
@@ -189,6 +267,7 @@ export default function ProfilePage() {
 
       <div className="space-y-5">
         <EditInfoSection />
+        <PreferencesSection />
         <ChangePasswordSection />
       </div>
     </div>

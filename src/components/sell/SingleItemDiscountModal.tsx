@@ -1,23 +1,35 @@
 import { useState } from 'react'
-import { getDrugSellPrice } from '../../types/drug'
 import type { CartItem } from '../../types/sale'
+import { itemBasePrice, useCart } from '../../context/CartContext'
 
 interface Props {
   item: CartItem
-  onConfirm: (id: string, discount: number) => void
+  /** discount is per DISPLAY unit (matches what the user sees/types). */
+  onConfirm: (id: string, unit: string, discount: number) => void
   onClose: () => void
 }
 
 export default function SingleItemDiscountModal({ item, onConfirm, onClose }: Props) {
-  const price = getDrugSellPrice(item)
-  const [discount, setDiscount] = useState(String(item.itemDiscount || ''))
+  const { priceTier } = useCart()
+  const unit = item.selected_unit ?? ''
+  const factor = item.selected_unit_factor ?? 1
+  // Use the cart's current tier for both display + cap calculation so the
+  // max-discount guard matches the actual price the customer sees.
+  const displayPrice = itemBasePrice(item, priceTier) * factor
+  const displayUnit = unit || item.unit
+  const displayQty = Math.floor(item.qty / factor)
+  const currentDisplayDiscount = (item.itemDiscount || 0) * factor
 
-  const discountAmt = Math.min(parseFloat(discount) || 0, price)
-  const effectivePrice = Math.max(0, price - discountAmt)
+  const [discount, setDiscount] = useState(
+    currentDisplayDiscount > 0 ? String(currentDisplayDiscount) : ''
+  )
+
+  const discountAmt = Math.min(parseFloat(discount) || 0, displayPrice)
+  const effectivePrice = Math.max(0, displayPrice - discountAmt)
   const hasDiscount = discountAmt > 0
 
   const handleConfirm = () => {
-    onConfirm(item.id, parseFloat(discount) || 0)
+    onConfirm(item.id, unit, parseFloat(discount) || 0)
     onClose()
   }
 
@@ -29,7 +41,9 @@ export default function SingleItemDiscountModal({ item, onConfirm, onClose }: Pr
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
           <div className="min-w-0 pr-2">
             <h2 className="text-sm font-semibold text-gray-800 truncate">{item.name}</h2>
-            <p className="text-xs text-gray-400">ส่วนลดรายการ</p>
+            <p className="text-xs text-gray-400">
+              ส่วนลดรายการ {unit && <span className="text-indigo-500">· {unit}</span>}
+            </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none shrink-0">×</button>
         </div>
@@ -37,12 +51,12 @@ export default function SingleItemDiscountModal({ item, onConfirm, onClose }: Pr
         {/* Input */}
         <div className="px-5 py-4 space-y-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 shrink-0">ลดต่อหน่วย</span>
+            <span className="text-sm text-gray-500 shrink-0">ลดต่อ{displayUnit}</span>
             <input
               autoFocus
               type="number"
               min={0}
-              max={price}
+              max={displayPrice}
               value={discount}
               onChange={e => setDiscount(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleConfirm()}
@@ -54,23 +68,23 @@ export default function SingleItemDiscountModal({ item, onConfirm, onClose }: Pr
 
           {/* Price preview */}
           <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
-            <span className="text-xs text-gray-400">ราคา/หน่วย</span>
+            <span className="text-xs text-gray-400">ราคา/{displayUnit}</span>
             <span className="text-sm font-semibold">
               {hasDiscount ? (
                 <>
-                  <s className="text-gray-300 font-normal">฿{price}</s>
+                  <s className="text-gray-300 font-normal">฿{displayPrice}</s>
                   {' → '}
                   <span className="text-rose-500">฿{effectivePrice}</span>
                 </>
               ) : (
-                <span className="text-gray-700">฿{price}</span>
+                <span className="text-gray-700">฿{displayPrice}</span>
               )}
             </span>
           </div>
 
-          {item.qty > 1 && hasDiscount && (
+          {displayQty > 1 && hasDiscount && (
             <div className="text-xs text-gray-400 text-right">
-              ลดรวม ×{item.qty} = <span className="text-rose-500">-฿{(discountAmt * item.qty).toLocaleString()}</span>
+              ลดรวม ×{displayQty} = <span className="text-rose-500">-฿{(discountAmt * displayQty).toLocaleString()}</span>
             </div>
           )}
         </div>
@@ -79,7 +93,7 @@ export default function SingleItemDiscountModal({ item, onConfirm, onClose }: Pr
         <div className="px-5 pb-5 flex gap-2">
           {discountAmt > 0 && (
             <button
-              onClick={() => { onConfirm(item.id, 0); onClose() }}
+              onClick={() => { onConfirm(item.id, unit, 0); onClose() }}
               className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm text-gray-600 transition-colors"
             >
               ล้างส่วนลด

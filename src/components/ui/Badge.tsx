@@ -1,15 +1,28 @@
+import { useSettings } from '../../context/SettingsContext'
+
 interface StockBadgeProps {
   stock: number
-  minStock?: number   // 0 or undefined = use default threshold of 20
+  minStock?: number
 }
 
+/** Hard fallback if SettingsContext isn't available (e.g. outside app tree). */
+export const DEFAULT_LOW_STOCK_THRESHOLD = 20
+
+const badgeBase = 'inline-block px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap'
+
 export function StockBadge({ stock, minStock }: StockBadgeProps) {
-  const threshold = (minStock && minStock > 0) ? minStock : 20
+  const { settings } = useSettings()
+  // Use the tenant fallback when the drug has no min_stock. Treat
+  // `undefined` as "not configured" → fall back to built-in constant;
+  // `0` is an explicit choice meaning "never show ใกล้หมด".
+  const tenantThreshold = settings.stock.low_stock_threshold
+  const fallback = tenantThreshold === undefined ? DEFAULT_LOW_STOCK_THRESHOLD : tenantThreshold
+  const threshold = minStock && minStock > 0 ? minStock : fallback
   if (stock === 0)
-    return <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700 font-medium">หมด</span>
-  if (stock <= threshold)
-    return <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 font-medium">ใกล้หมด</span>
-  return <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700 font-medium">ปกติ</span>
+    return <span className={`${badgeBase} bg-red-100 text-red-700`}>หมด</span>
+  if (threshold > 0 && stock <= threshold)
+    return <span className={`${badgeBase} bg-amber-100 text-amber-700`}>ใกล้หมด</span>
+  return <span className={`${badgeBase} bg-green-100 text-green-700`}>ปกติ</span>
 }
 
 interface TypeBadgeProps {

@@ -4,6 +4,7 @@ import Button from '../ui/Button'
 import { updateCustomer } from '../../api/customers'
 import { useToast } from '../../hooks/useToast'
 import type { Customer } from '../../types/customer'
+import type { PriceTier } from '../../types/drug'
 
 interface Props {
   customer: Customer
@@ -11,25 +12,32 @@ interface Props {
   onSaved: () => void
 }
 
+type PriceTierValue = '' | PriceTier
+
 export default function EditCustomerModal({ customer, onClose, onSaved }: Props) {
   const showToast = useToast()
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    name: string; phone: string; disease: string; price_tier: PriceTierValue
+  }>({
     name:    customer.name,
     phone:   customer.phone    ?? '',
     disease: customer.disease  ?? '',
+    price_tier: (customer.price_tier ?? '') as PriceTierValue,
   })
   const [loading, setLoading] = useState(false)
 
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
+    setForm(f => ({ ...f, [k]: v }))
 
   const handleSave = async () => {
     if (!form.name) { showToast('กรุณากรอกชื่อ', 'error'); return }
     setLoading(true)
     try {
       await updateCustomer(customer.id, {
-        name:    form.name,
-        phone:   form.phone,
-        disease: form.disease || '-',
+        name:       form.name,
+        phone:      form.phone,
+        disease:    form.disease || '-',
+        price_tier: form.price_tier,
       })
       showToast('แก้ไขข้อมูลสำเร็จ')
       onSaved()
@@ -39,6 +47,8 @@ export default function EditCustomerModal({ customer, onClose, onSaved }: Props)
       setLoading(false)
     }
   }
+
+  const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400'
 
   return (
     <Modal title="แก้ไขข้อมูลลูกค้า" onClose={onClose}>
@@ -52,10 +62,24 @@ export default function EditCustomerModal({ customer, onClose, onSaved }: Props)
               type={key === 'phone' ? 'tel' : 'text'}
               value={form[key]}
               onChange={e => set(key, e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+              className={inputCls}
             />
           </div>
         ))}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            ราคาที่ใช้ประจำ <span className="text-gray-400 font-normal">(ไม่ระบุ = หน้าร้าน)</span>
+          </label>
+          <select
+            value={form.price_tier}
+            onChange={e => set('price_tier', e.target.value as PriceTierValue)}
+            className={inputCls}
+          >
+            <option value="">— หน้าร้าน (default) —</option>
+            <option value="regular">ประจำ</option>
+            <option value="wholesale">ขายส่ง</option>
+          </select>
+        </div>
         <div className="flex gap-2 pt-2">
           <Button variant="secondary" className="flex-1" onClick={onClose}>ยกเลิก</Button>
           <Button className="flex-1" onClick={handleSave} disabled={loading}>
