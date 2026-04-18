@@ -51,7 +51,7 @@ export default function Sidebar() {
             to={item.to}
             className={({ isActive }) => linkClass(isActive)}
           >
-            <span>{item.icon}</span>
+            <span aria-hidden="true">{item.icon}</span>
             <span>{item.label}</span>
           </NavLink>
         ))}
@@ -61,15 +61,16 @@ export default function Sidebar() {
           <div className="mt-1">
             <button
               onClick={() => setKyOpen(o => !o)}
+              aria-expanded={kyOpen}
               className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
                 kyActive
                   ? 'text-blue-400'
                   : 'text-slate-300 hover:bg-slate-700 hover:text-white'
               }`}
             >
-              <span>📋</span>
+              <span aria-hidden="true">📋</span>
               <span className="flex-1 text-left">แบบฟอร์ม ขย.</span>
-              <span className={`text-xs transition-transform duration-200 ${kyOpen ? 'rotate-180' : ''}`}>
+              <span aria-hidden="true" className={`text-xs transition-transform duration-200 ${kyOpen ? 'rotate-180' : ''}`}>
                 ▾
               </span>
             </button>

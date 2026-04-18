@@ -1,4 +1,4 @@
-export type MovementType = 'import' | 'sale' | 'return' | 'adjustment' | 'writeoff'
+export type MovementType = 'import' | 'sale' | 'return' | 'adjustment' | 'writeoff' | 'void'
 
 export interface Movement {
   id: string

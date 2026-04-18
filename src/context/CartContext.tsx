@@ -29,7 +29,7 @@ function cartReducer(state: CartItem[], action: CartAction): CartItem[] {
     }
     case 'CHANGE_QTY': {
       return state
-        .map(i => i.id === action.id ? { ...i, qty: i.qty + action.delta } : i)
+        .map(i => i.id === action.id ? { ...i, qty: Math.min(i.qty + action.delta, i.stock) } : i)
         .filter(i => i.qty > 0)
     }
     case 'SET_ITEM_DISCOUNT': {
@@ -193,11 +193,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setSlots(s => s.map((v, i) => i === idx ? null : v))
   }
 
-  // total คำนวณจาก effective price (หักส่วนลดรายการแล้ว)
-  const total = items.reduce((s, i) => {
-    const effectivePrice = Math.max(0, getDrugSellPrice(i) - (i.itemDiscount || 0))
-    return s + effectivePrice * i.qty
-  }, 0)
+  // total คำนวณจาก effective price (หักส่วนลดรายการแล้ว) และปัดเศษทศนิยม 2 ตำแหน่ง
+  const total = Math.round(
+    items.reduce((s, i) => {
+      const effectivePrice = Math.max(0, getDrugSellPrice(i) - (i.itemDiscount || 0))
+      return s + effectivePrice * i.qty
+    }, 0) * 100,
+  ) / 100
 
   return (
     <CartContext.Provider value={{

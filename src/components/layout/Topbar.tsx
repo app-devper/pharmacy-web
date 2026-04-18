@@ -65,17 +65,18 @@ export default function Topbar() {
             </span>
             <button
               onClick={() => navigate('/profile')}
-              className="text-sm text-gray-700 hover:text-blue-600 transition-colors"
+              className="text-sm text-gray-700 hover:text-blue-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
               title="โปรไฟล์ของฉัน"
             >
               {user.firstName}
             </button>
             <button
               onClick={handleLogout}
-              className="text-xs text-gray-400 hover:text-red-500 transition-colors ml-1"
+              aria-label="ออกจากระบบ"
+              className="text-xs text-gray-400 hover:text-red-500 transition-colors ml-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded"
               title="ออกจากระบบ"
             >
-              ออก
+              ออกจากระบบ
             </button>
           </div>
         )}

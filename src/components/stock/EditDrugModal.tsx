@@ -61,11 +61,11 @@ export default function EditDrugModal({ drug, onClose, onSaved }: Props) {
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
       {opts
         ? <select value={(form as Record<string, string>)[key]} onChange={e => set(key, e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400">
             {opts.map(o => <option key={o}>{o}</option>)}
           </select>
         : <input type={type} value={(form as Record<string, string>)[key]} onChange={e => set(key, e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400" />
       }
     </div>
   )
@@ -79,7 +79,20 @@ export default function EditDrugModal({ drug, onClose, onSaved }: Props) {
           {field('ขนาดยา', 'strength')}
           {field('บาร์โค้ด', 'barcode')}
           {field('ประเภท', 'type', 'text', DRUG_TYPES)}
-          {field('หน่วย', 'unit', 'text', DRUG_UNITS)}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">หน่วย</label>
+            <input
+              type="text"
+              list="edit-drug-unit-list"
+              value={form.unit}
+              onChange={e => set('unit', e.target.value)}
+              placeholder="เม็ด, แคปซูล, ขวด…"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400"
+            />
+            <datalist id="edit-drug-unit-list">
+              {DRUG_UNITS.map(u => <option key={u} value={u} />)}
+            </datalist>
+          </div>
           {field('ราคาทุน (฿)', 'cost_price', 'number')}
           {field('ราคาขาย (฿)', 'sell_price', 'number')}
           {field('แจ้งเตือนเมื่อสต็อก ≤', 'min_stock', 'number')}

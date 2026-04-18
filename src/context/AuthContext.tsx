@@ -25,9 +25,25 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return Date.now() >= payload.exp * 1000
+  } catch {
+    return true
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
+  const [token, setToken] = useState<string | null>(() => {
+    const t = localStorage.getItem('token')
+    if (!t || isTokenExpired(t)) {
+      if (t) localStorage.removeItem('token')
+      return null
+    }
+    return t
+  })
   const [loading, setLoading] = useState(true)
 
   const clearAuth = useCallback(() => {

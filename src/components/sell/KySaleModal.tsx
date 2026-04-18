@@ -141,7 +141,7 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
         }
 
         if (kyErrors.length > 0) {
-          showToast(`บันทึก KY ไม่ครบ: ${kyErrors.join(', ')}`, 'error')
+          showToast(`บิล #${result.bill_no} บันทึกแล้ว แต่บันทึก ขย. ไม่ครบ (${kyErrors.join(', ')}) — กรุณากรอกเพิ่มเองใน ขย. โดยตรง`, 'error')
         }
       }
 

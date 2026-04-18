@@ -55,8 +55,8 @@ export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props)
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col">
+      <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 overscroll-contain" onClick={onClose}>
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
             <div className="flex items-center gap-3">
@@ -77,7 +77,7 @@ export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props)
                 </span>
               )}
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+            <button onClick={onClose} aria-label="ปิด" className="text-gray-400 hover:text-gray-600 text-2xl leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">×</button>
           </div>
 
           {/* Void reason banner */}
@@ -117,8 +117,8 @@ export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props)
                     <tr key={item.id} className="border-t border-gray-50">
                       <td className="py-2.5 px-5 text-gray-800 font-medium">{item.drug_name}</td>
                       <td className="py-2.5 px-3 text-right text-gray-600">{item.qty}</td>
-                      <td className="py-2.5 px-3 text-right text-gray-600">{fmtMoney(item.price)}</td>
-                      <td className="py-2.5 px-5 text-right font-semibold text-gray-800">
+                      <td className="py-2.5 px-3 text-right text-gray-600" style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(item.price)}</td>
+                      <td className="py-2.5 px-5 text-right font-semibold text-gray-800" style={{ fontVariantNumeric: 'tabular-nums' }}>
                         {fmtMoney(item.subtotal)}
                       </td>
                     </tr>
@@ -153,7 +153,7 @@ export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props)
                   {isAdmin && (
                     <button
                       onClick={() => setShowVoid(true)}
-                      className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-sm transition-colors"
+                      className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
                     >
                       ยกเลิกบิล
                     </button>
@@ -161,7 +161,7 @@ export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props)
                   <button
                     onClick={() => setShowReturn(true)}
                     disabled={loading}
-                    className="px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 text-sm transition-colors disabled:opacity-40"
+                    className="px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 text-sm transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
                     คืนยา
                   </button>
@@ -171,13 +171,14 @@ export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props)
               <button
                 onClick={handlePrint}
                 disabled={loading}
-                className="px-4 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm text-gray-600 transition-colors disabled:opacity-40"
+                aria-label="พิมพ์ใบเสร็จ"
+                className="px-4 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm text-gray-600 transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 🖨 พิมพ์
               </button>
               <button
                 onClick={onClose}
-                className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm text-white transition-colors"
+                className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 ปิด
               </button>

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { SaleResponse, CartItem } from '../types/sale'
 import type { Drug } from '../types/drug'
 import { useDrugs } from '../hooks/useDrugs'
@@ -26,6 +26,7 @@ export default function SellPage() {
   const [kyData, setKyData] = useState<CheckoutData | null>(null)
   const [lastScannedId, setLastScannedId] = useState<string | null>(null)
   const highlightTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => { clearTimeout(highlightTimer.current) }, [])
 
   useBarcodeScanner((barcode) => {
     // Match by barcode first, then fall back to reg_no (for scanners printing the registration number)
@@ -56,7 +57,7 @@ export default function SellPage() {
     <div className="flex flex-col h-full" style={{ height: 'calc(100vh - 57px)' }}>
       {!online && (
         <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-200 text-sm text-amber-800 shrink-0">
-          <span>⚠</span>
+          <span aria-hidden="true">⚠</span>
           <span>ไม่มีอินเตอร์เน็ต — ใช้ข้อมูลสำรอง บิลจะซิงค์อัตโนมัติเมื่อกลับมาออนไลน์</span>
         </div>
       )}

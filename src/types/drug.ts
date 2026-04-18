@@ -36,6 +36,7 @@ export interface DrugInput {
   reg_no: string
   unit: string
   report_types: string[]
+  create_lot?: DrugLotInput
 }
 
 export interface DrugUpdate {
@@ -75,7 +76,11 @@ export interface DrugLotInput {
 }
 
 export const DRUG_TYPES = ['ยาสามัญ', 'ยาแผนปัจจุบัน', 'ยาสมุนไพร', 'อาหารเสริม']
-export const DRUG_UNITS = ['เม็ด', 'แคปซูล', 'ขวด', 'กล่อง', 'หลอด']
+export const DRUG_UNITS = [
+  'เม็ด', 'แคปซูล', 'ซอง', 'ขวด', 'กล่อง', 'หลอด',
+  'แผง', 'ถุง', 'ชิ้น', 'อัน', 'ชุด', 'ขวดเล็ก', 'ขวดใหญ่',
+  'มล.', 'ลิตร', 'กรัม', 'มก.',
+]
 
 export const KY_REPORT_OPTIONS = [
   { value: 'ky9',  label: 'ขย.9',  desc: 'บัญชีการซื้อยา',    color: 'bg-blue-100 text-blue-700' },

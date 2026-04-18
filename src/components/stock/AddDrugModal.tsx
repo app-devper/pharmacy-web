@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import { addDrug } from '../../api/drugs'
@@ -17,7 +17,16 @@ export default function AddDrugModal({ onClose, onSaved }: Props) {
     sell_price: '', cost_price: '', stock: '', min_stock: '0', reg_no: '', unit: 'เม็ด',
   })
   const [reportTypes, setReportTypes] = useState<string[]>([])
+  const [lot, setLot] = useState({ lot_number: '', expiry_date: '', import_date: '' })
+  const setLotField = (k: string, v: string) => setLot(l => ({ ...l, [k]: v }))
   const [loading, setLoading] = useState(false)
+
+  // Reset lot fields when stock drops to 0 so old values don't resurface.
+  useEffect(() => {
+    if ((+form.stock || 0) === 0) {
+      setLot({ lot_number: '', expiry_date: '', import_date: '' })
+    }
+  }, [form.stock])
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
@@ -28,14 +37,29 @@ export default function AddDrugModal({ onClose, onSaved }: Props) {
 
   const handleSave = async () => {
     if (!form.name) { showToast('กรุณากรอกชื่อยา', 'error'); return }
+    const stockQty = +form.stock || 0
+    if (stockQty > 0) {
+      if (!lot.lot_number) { showToast('กรุณากรอกเลขล็อต', 'error'); return }
+      if (!lot.expiry_date) { showToast('กรุณาระบุวันหมดอายุ', 'error'); return }
+    }
     setLoading(true)
     try {
       await addDrug({
         name: form.name, generic_name: form.generic_name,
         type: form.type, strength: form.strength, barcode: form.barcode,
         sell_price: +form.sell_price || 0, cost_price: +form.cost_price || 0,
-        stock: +form.stock || 0, min_stock: +form.min_stock || 0, reg_no: form.reg_no, unit: form.unit,
+        stock: stockQty, min_stock: +form.min_stock || 0, reg_no: form.reg_no, unit: form.unit,
         report_types: reportTypes,
+        ...(stockQty > 0 ? {
+          create_lot: {
+            lot_number: lot.lot_number,
+            expiry_date: lot.expiry_date,
+            import_date: lot.import_date || '',
+            cost_price: null,
+            sell_price: null,
+            quantity: stockQty,
+          }
+        } : {}),
       })
       showToast('เพิ่มยาสำเร็จ')
       onSaved()
@@ -51,11 +75,11 @@ export default function AddDrugModal({ onClose, onSaved }: Props) {
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
       {opts
         ? <select value={(form as Record<string, string>)[key]} onChange={e => set(key, e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400">
             {opts.map(o => <option key={o}>{o}</option>)}
           </select>
         : <input type={type} value={(form as Record<string, string>)[key]} onChange={e => set(key, e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400" />
       }
     </div>
   )
@@ -69,13 +93,62 @@ export default function AddDrugModal({ onClose, onSaved }: Props) {
           {field('ขนาดยา', 'strength', 'text')}
           {field('บาร์โค้ด', 'barcode')}
           {field('ประเภท', 'type', 'text', DRUG_TYPES)}
-          {field('หน่วย', 'unit', 'text', DRUG_UNITS)}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">หน่วย</label>
+            <input
+              type="text"
+              list="add-drug-unit-list"
+              value={form.unit}
+              onChange={e => set('unit', e.target.value)}
+              placeholder="เม็ด, แคปซูล, ขวด…"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400"
+            />
+            <datalist id="add-drug-unit-list">
+              {DRUG_UNITS.map(u => <option key={u} value={u} />)}
+            </datalist>
+          </div>
           {field('ราคาทุน (฿)', 'cost_price', 'number')}
           {field('ราคาขาย (฿)', 'sell_price', 'number')}
-          {field('จำนวนสต็อกเริ่มต้น', 'stock', 'number')}
-          {field('แจ้งเตือนเมื่อสต็อก ≤', 'min_stock', 'number')}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">จำนวนสต็อกเริ่มต้น</label>
+            <input type="number" min="0" step="1" value={form.stock}
+              onChange={e => set('stock', e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">แจ้งเตือนเมื่อสต็อก ≤</label>
+            <input type="number" min="0" step="1" value={form.min_stock}
+              onChange={e => set('min_stock', e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400" />
+          </div>
           {field('เลขทะเบียน', 'reg_no')}
         </div>
+
+        {/* Lot fields — shown only when stock > 0 */}
+        {(+form.stock || 0) > 0 && (
+          <div className="border border-blue-200 rounded-lg p-3 bg-blue-50 space-y-2">
+            <p className="text-xs font-semibold text-blue-700">
+              ข้อมูลล็อตเริ่มต้น ({+form.stock} {form.unit || 'ชิ้น'})
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">เลขล็อต *</label>
+                <input type="text" value={lot.lot_number} onChange={e => setLotField('lot_number', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">วันหมดอายุ *</label>
+                <input type="date" value={lot.expiry_date} onChange={e => setLotField('expiry_date', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">วันนำเข้า <span className="text-gray-400 font-normal">(ไม่ระบุ = วันนี้)</span></label>
+                <input type="date" value={lot.import_date} onChange={e => setLotField('import_date', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400" />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Report Types */}
         <div>

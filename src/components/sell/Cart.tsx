@@ -32,8 +32,9 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
   const [showCartDiscount, setShowCartDiscount] = useState(false)
   const [discountItem, setDiscountItem] = useState<CartItem | null>(null)
 
-  // Reset received amount when switching park slots
+  // Reset received amount when switching park slots or cart is cleared
   useEffect(() => { setReceived('') }, [activeSlot])
+  useEffect(() => { if (items.length === 0) setReceived('') }, [items.length])
 
   // discount calculations
   // total (from context) = grossSubtotal - totalItemDiscount (effective subtotal)
@@ -51,6 +52,7 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
     if (items.length === 0) { showToast('ตะกร้าว่างเปล่า', 'error'); return }
     if (!received.trim()) { showToast('กรุณาระบุจำนวนเงินที่รับ', 'error'); return }
     const recv = parseFloat(received)
+    if (recv < netTotal) { showToast('จำนวนเงินที่รับน้อยกว่ายอดสุทธิ', 'error'); return }
     const saleItems = items.map(i => ({
       drug_id: i.id,
       qty: i.qty,
@@ -94,6 +96,18 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
 
   const recvNum = parseFloat(received) || 0
   const change = Math.max(0, recvNum - netTotal)
+
+  // Quick-cash chips: exact + next-higher 100/500/1000, deduped, max 4 chips.
+  const quickAmounts = (() => {
+    if (netTotal <= 0) return [] as number[]
+    const exact = Math.round(netTotal * 100) / 100
+    const up = (step: number) => Math.ceil(netTotal / step) * step
+    const set = new Set<number>([exact])
+    for (const n of [up(100), up(500), up(1000)]) {
+      if (n > exact) set.add(n)
+    }
+    return Array.from(set).slice(0, 4)
+  })()
   const hasAllergy = selectedCustomer?.disease &&
     selectedCustomer.disease !== '-' && selectedCustomer.disease !== ''
 
@@ -110,27 +124,33 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
         {!selectedCustomer ? (
           <button
             onClick={() => setShowPicker(true)}
-            className="w-full flex items-center gap-2 border border-dashed border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
+            aria-label="เลือกลูกค้า"
+            className="w-full flex items-center gap-2 border border-dashed border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
-            <span>👤</span>
+            <span aria-hidden="true">👤</span>
             <span>เลือกลูกค้า</span>
           </button>
         ) : (
           <div>
-            <div
-              className="flex items-center gap-2 bg-blue-50 rounded-xl px-3 py-1.5 cursor-pointer hover:bg-blue-100 transition-colors"
+            <button
+              type="button"
+              className="w-full flex items-center gap-2 bg-blue-50 rounded-xl px-3 py-1.5 cursor-pointer hover:bg-blue-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               onClick={() => setShowPicker(true)}
             >
-              <span className="text-sm">👤</span>
-              <span className="text-sm font-medium text-blue-800 flex-1 truncate">{selectedCustomer.name}</span>
-              <button
+              <span className="text-sm" aria-hidden="true">👤</span>
+              <span className="text-sm font-medium text-blue-800 flex-1 truncate text-left">{selectedCustomer.name}</span>
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="ลบลูกค้า"
                 onClick={e => { e.stopPropagation(); setSelectedCustomer(null) }}
+                onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); setSelectedCustomer(null) } }}
                 className="text-blue-400 hover:text-blue-600 text-lg leading-none"
-              >×</button>
-            </div>
+              >×</span>
+            </button>
             {hasAllergy && (
               <div className="mt-1.5 flex gap-1.5 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 text-xs text-amber-700">
-                <span className="shrink-0">⚠</span>
+                <span className="shrink-0" aria-hidden="true">⚠</span>
                 <span>{selectedCustomer.disease}</span>
               </div>
             )}
@@ -203,20 +223,46 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
         {/* ยอดสุทธิ */}
         <div className="flex justify-between items-baseline">
           <span className="text-sm font-semibold text-gray-700">ยอดสุทธิ</span>
-          <span className={`font-bold text-lg ${hasAnyDiscount ? 'text-blue-600' : 'text-gray-800'}`}>
+          <span className={`font-bold text-lg ${hasAnyDiscount ? 'text-blue-600' : 'text-gray-800'}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
             ฿{netTotal.toLocaleString()}
           </span>
         </div>
 
+        {/* Quick-cash chips */}
+        {quickAmounts.length > 0 && (
+          <div className="grid grid-cols-2 gap-1.5">
+            {quickAmounts.map((amt, i) => {
+              const active = recvNum === amt
+              return (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setReceived(String(amt))}
+                  className={`text-xs font-medium py-1.5 rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                    active
+                      ? 'border-blue-400 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                  }`}
+                >
+                  ฿{amt.toLocaleString()}
+                  {i === 0 && <span className="ml-1 text-[10px] text-gray-400">พอดี</span>}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {/* รับเงิน */}
         <input
           type="number"
+          name="received"
+          autoComplete="off"
           placeholder="รับเงิน (฿) * — F2"
           value={received}
           onChange={e => setReceived(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleCheckout()}
           data-shortcut="received"
-          className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none transition-colors ${
+          className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-colors ${
             received.trim()
               ? 'border-gray-200 focus:border-blue-400'
               : 'border-orange-300 bg-orange-50 focus:border-orange-400'
@@ -227,7 +273,7 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
         {received && (
           <div className="flex justify-between text-sm text-gray-600">
             <span>ทอน</span>
-            <span className="font-semibold">฿{change.toLocaleString()}</span>
+            <span className="font-semibold" style={{ fontVariantNumeric: 'tabular-nums' }}>฿{change.toLocaleString()}</span>
           </div>
         )}
 

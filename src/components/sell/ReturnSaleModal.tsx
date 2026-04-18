@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import { createReturn } from '../../api/sales'
 import { useToast } from '../../hooks/useToast'
@@ -69,7 +68,13 @@ export default function ReturnSaleModal({ sale, items, existingReturns, onClose,
   }
 
   return (
-    <Modal title="คืนยา" onClose={onClose}>
+    <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4 overscroll-contain" onClick={onClose}>
+    <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+        <h3 className="font-semibold text-gray-800">คืนยา</h3>
+        <button onClick={onClose} aria-label="ปิด" className="text-gray-400 hover:text-gray-600 text-xl leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">&times;</button>
+      </div>
+      <div className="p-5 overflow-y-auto flex-1">
       <div className="space-y-4">
         {/* Bill info */}
         <div className="bg-gray-50 rounded-lg px-4 py-2.5 flex items-center justify-between text-sm">
@@ -125,8 +130,9 @@ export default function ReturnSaleModal({ sale, items, existingReturns, onClose,
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             type="button"
+                            aria-label="ลดจำนวนคืน"
                             onClick={() => setQty(item.id, (returnQtys[item.id] ?? 0) - 1)}
-                            className="w-7 h-7 rounded border border-gray-200 text-gray-600 hover:bg-red-50 hover:border-red-300 hover:text-red-600 text-sm font-bold transition-colors"
+                            className="w-7 h-7 rounded border border-gray-200 text-gray-600 hover:bg-red-50 hover:border-red-300 hover:text-red-600 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                           >−</button>
                           <input
                             type="number"
@@ -134,12 +140,13 @@ export default function ReturnSaleModal({ sale, items, existingReturns, onClose,
                             max={max}
                             value={returnQtys[item.id] ?? 0}
                             onChange={e => setQty(item.id, parseInt(e.target.value) || 0)}
-                            className="w-12 border border-gray-200 rounded px-1 py-1 text-sm text-center focus:outline-none focus:border-blue-400"
+                            className="w-12 border border-gray-200 rounded px-1 py-1 text-sm text-center focus:outline-none focus:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400"
                           />
                           <button
                             type="button"
+                            aria-label="เพิ่มจำนวนคืน"
                             onClick={() => setQty(item.id, (returnQtys[item.id] ?? 0) + 1)}
-                            className="w-7 h-7 rounded border border-gray-200 text-gray-600 hover:bg-green-50 hover:border-green-300 hover:text-green-600 text-sm font-bold transition-colors"
+                            className="w-7 h-7 rounded border border-gray-200 text-gray-600 hover:bg-green-50 hover:border-green-300 hover:text-green-600 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                           >+</button>
                         </div>
                       )}
@@ -168,8 +175,8 @@ export default function ReturnSaleModal({ sale, items, existingReturns, onClose,
             value={reason}
             onChange={e => setReason(e.target.value)}
             rows={2}
-            placeholder="เหตุผลการคืนยา..."
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 resize-none"
+            placeholder="เหตุผลการคืนยา…"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400 resize-none"
           />
         </div>
 
@@ -185,6 +192,8 @@ export default function ReturnSaleModal({ sale, items, existingReturns, onClose,
           </Button>
         </div>
       </div>
-    </Modal>
+      </div>
+    </div>
+    </div>
   )
 }

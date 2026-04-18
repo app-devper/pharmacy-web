@@ -11,14 +11,15 @@ const PAGE_SIZE = 50
 // ─── Type config ─────────────────────────────────────────────────────────────
 
 const TYPE_CONFIG: Record<MovementType, { label: string; icon: string; bg: string; text: string }> = {
-  import:     { label: 'นำเข้า',   icon: '📥', bg: 'bg-blue-100',   text: 'text-blue-700'   },
-  sale:       { label: 'ขาย',      icon: '🛒', bg: 'bg-red-100',    text: 'text-red-700'    },
-  return:     { label: 'คืนยา',    icon: '↩️', bg: 'bg-green-100',  text: 'text-green-700'  },
-  adjustment: { label: 'ปรับสต็อก', icon: '✏️', bg: 'bg-orange-100', text: 'text-orange-700' },
-  writeoff:   { label: 'ตัดสต็อก', icon: '🗑️', bg: 'bg-gray-100',   text: 'text-gray-600'   },
+  import:     { label: 'นำเข้า',      icon: '📥', bg: 'bg-blue-100',   text: 'text-blue-700'   },
+  sale:       { label: 'ขาย',         icon: '🛒', bg: 'bg-red-100',    text: 'text-red-700'    },
+  return:     { label: 'คืนยา',       icon: '↩️', bg: 'bg-green-100',  text: 'text-green-700'  },
+  adjustment: { label: 'ปรับสต็อก',  icon: '✏️', bg: 'bg-orange-100', text: 'text-orange-700' },
+  writeoff:   { label: 'ตัดสต็อก',   icon: '🗑️', bg: 'bg-gray-100',   text: 'text-gray-600'   },
+  void:       { label: 'ยกเลิกบิล',  icon: '🚫', bg: 'bg-rose-100',   text: 'text-rose-700'   },
 }
 
-const ALL_TYPES: MovementType[] = ['import', 'sale', 'return', 'adjustment', 'writeoff']
+const ALL_TYPES: MovementType[] = ['import', 'sale', 'return', 'adjustment', 'writeoff', 'void']
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

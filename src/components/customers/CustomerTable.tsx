@@ -49,7 +49,7 @@ export default function CustomerTable({ customers, onSelect, onEdit }: Props) {
               </td>
               <td className="py-3 px-4 text-right">
                 <button
-                  onClick={e => { e.stopPropagation(); onEdit(c) }}
+                  onClick={e => { e.stopPropagation(); onEdit?.(c) }}
                   className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500 transition-all px-1 text-base"
                   title="แก้ไข"
                 >
