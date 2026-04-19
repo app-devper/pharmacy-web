@@ -60,7 +60,7 @@ export default function ImportFormModal({ existingId, onClose, onSaved }: Props)
       setHeader({
         supplier: po.supplier,
         invoice_no: po.invoice_no,
-        receive_date: po.receive_date ? po.receive_date.slice(0, 10) : today,
+        receive_date: po.receive_date ? po.receive_date.slice(0, 10) : getToday(),
         notes: po.notes,
       })
       setRows(po.items.map(item => ({
