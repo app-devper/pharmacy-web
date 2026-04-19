@@ -52,10 +52,13 @@ export default function LoginPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อผู้ใช้</label>
               <input
                 type="text"
+                name="username"
+                autoComplete="username"
+                spellCheck={false}
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
-                placeholder="username"
+                placeholder="เช่น admin01"
                 required
                 autoFocus
               />
@@ -65,10 +68,12 @@ export default function LoginPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">รหัสผ่าน</label>
               <input
                 type="password"
+                name="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
-                placeholder="password"
+                placeholder="••••••••"
                 required
               />
             </div>
@@ -78,7 +83,7 @@ export default function LoginPage() {
               disabled={loading || !username || !password}
               className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+              {loading ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}
             </button>
           </form>
         </div>

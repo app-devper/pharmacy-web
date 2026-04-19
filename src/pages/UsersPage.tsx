@@ -128,7 +128,7 @@ function UserFormModal({ target, onClose, onSaved }: UserFormProps) {
         <div className="flex gap-2 pt-1">
           <Button variant="secondary" className="flex-1" onClick={onClose}>ยกเลิก</Button>
           <Button className="flex-1" onClick={handleSave} disabled={loading}>
-            {loading ? 'กำลังบันทึก...' : 'บันทึก'}
+            {loading ? 'กำลังบันทึก…' : 'บันทึก'}
           </Button>
         </div>
       </div>
@@ -175,7 +175,7 @@ function SetPasswordModal({ user, onClose, onSaved }: { user: UmUser; onClose: (
         <div className="flex gap-2 pt-1">
           <Button variant="secondary" className="flex-1" onClick={onClose}>ยกเลิก</Button>
           <Button className="flex-1" onClick={handleSave} disabled={loading}>
-            {loading ? 'กำลังบันทึก...' : 'ตั้งรหัสผ่าน'}
+            {loading ? 'กำลังบันทึก…' : 'ตั้งรหัสผ่าน'}
           </Button>
         </div>
       </div>
@@ -311,7 +311,7 @@ export default function UsersPage() {
         <div className="flex-1" />
         <input
           type="text"
-          placeholder="ค้นหาชื่อ / username / อีเมล..."
+          placeholder="ค้นหาชื่อ / username / อีเมล…"
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="border border-gray-200 rounded-xl px-3 py-2 text-sm w-60 focus:outline-none focus:border-blue-400"

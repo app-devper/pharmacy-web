@@ -403,7 +403,7 @@ export default function SettingsPage() {
           isAdmin ? (
             <div className="pt-3 border-t border-gray-100 flex justify-end">
               <Button onClick={handleSave} disabled={saving}>
-                {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+                {saving ? 'กำลังบันทึก…' : 'บันทึก'}
               </Button>
             </div>
           ) : (

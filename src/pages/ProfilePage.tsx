@@ -98,7 +98,7 @@ function EditInfoSection() {
       </div>
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={loading}>
-          {loading ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+          {loading ? 'กำลังบันทึก…' : 'บันทึกข้อมูล'}
         </Button>
       </div>
     </Section>
@@ -162,7 +162,7 @@ function ChangePasswordSection() {
       </div>
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={loading}>
-          {loading ? 'กำลังบันทึก...' : 'เปลี่ยนรหัสผ่าน'}
+          {loading ? 'กำลังบันทึก…' : 'เปลี่ยนรหัสผ่าน'}
         </Button>
       </div>
     </Section>

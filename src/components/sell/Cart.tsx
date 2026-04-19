@@ -10,12 +10,13 @@ import CartDiscountModal from './CartDiscountModal'
 import SingleItemDiscountModal from './SingleItemDiscountModal'
 import ParkTabs from './ParkTabs'
 import type { SaleResponse, CartItem } from '../../types/sale'
+import type { PriceTier } from '../../types/drug'
 import { itemBasePrice } from '../../context/CartContext'
-import { TIER_OPTIONS } from '../../utils/pricing'
+import { getTierLabel } from '../../utils/pricing'
 import type { CheckoutData } from './KySaleModal'
 
 interface Props {
-  onCheckoutDone: (result: SaleResponse, items: CartItem[]) => void
+  onCheckoutDone: (result: SaleResponse, items: CartItem[], tier: PriceTier) => void
   onReloadDrugs: () => void
   onAddCustomer: () => void
   onKyRequired: (data: CheckoutData) => void
@@ -25,7 +26,7 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
   const {
     items, changeQty, setItemDiscount, clearCart, total,
     selectedCustomer, setSelectedCustomer,
-    priceTier, setPriceTier,
+    priceTier,
     discountInput, discountType, setDiscountInput, setDiscountType,
     activeSlot,
   } = useCart()
@@ -93,6 +94,7 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
         customer_id: selectedCustomer?.id,
         selectedCustomer,
         netTotal,
+        priceTier,
       })
       return
     }
@@ -106,6 +108,10 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
         received: recv,
         customer_id: selectedCustomer?.id,
       })
+      // Snapshot the cart state BEFORE clearing — ReceiptModal needs the tier
+      // at checkout time, not whatever the cart resets to afterwards.
+      const snapshotItems = [...items]
+      const tierAtCheckout = priceTier
       clearCart()
       setReceived('')
       // Optimistic patch: update only the drugs we sold. Skip full reload.
@@ -114,7 +120,7 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
       } else {
         onReloadDrugs()
       }
-      onCheckoutDone(result, [...items])
+      onCheckoutDone(result, snapshotItems, tierAtCheckout)
     } catch (e: unknown) {
       showToast((e as Error).message || 'เกิดข้อผิดพลาด', 'error')
     } finally {
@@ -147,26 +153,15 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
         <h2 className="font-semibold text-gray-800">ตะกร้า</h2>
       </div>
 
-      {/* Price tier toggle — reprices every line when changed */}
-      <div className="px-4 pt-3 pb-2 border-b border-gray-100">
-        <div className="text-[11px] text-gray-400 mb-1">ราคา</div>
-        <div className="grid grid-cols-3 gap-1">
-          {TIER_OPTIONS.map(t => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setPriceTier(t.id)}
-              className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                priceTier === t.id
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+      {/* Read-only tier indicator — shown only when the selected customer
+          pulls in a non-retail default. The tier is set by the customer and
+          cannot be overridden per-cart. */}
+      {priceTier !== 'retail' && (
+        <div className="px-4 pt-2 pb-2 border-b border-gray-100 text-xs text-indigo-600 flex items-center gap-1.5">
+          <span aria-hidden="true">💰</span>
+          <span>ใช้ราคา <span className="font-semibold">{getTierLabel(priceTier)}</span> ตามลูกค้า</span>
         </div>
-      </div>
+      )}
 
       {/* Customer selector */}
       <div className="px-4 pt-3 pb-2 border-b border-gray-100">
@@ -181,22 +176,22 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
           </button>
         ) : (
           <div>
-            <button
-              type="button"
-              className="w-full flex items-center gap-2 bg-blue-50 rounded-xl px-3 py-1.5 cursor-pointer hover:bg-blue-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-              onClick={() => setShowPicker(true)}
-            >
+            <div className="w-full flex items-center gap-2 bg-blue-50 rounded-xl pl-3 pr-1 py-1 hover:bg-blue-100 transition-colors focus-within:ring-2 focus-within:ring-blue-400">
               <span className="text-sm" aria-hidden="true">👤</span>
-              <span className="text-sm font-medium text-blue-800 flex-1 truncate text-left">{selectedCustomer.name}</span>
-              <span
-                role="button"
-                tabIndex={0}
+              <button
+                type="button"
+                onClick={() => setShowPicker(true)}
+                className="text-sm font-medium text-blue-800 flex-1 min-w-0 truncate text-left py-0.5 focus-visible:outline-none rounded"
+              >
+                {selectedCustomer.name}
+              </button>
+              <button
+                type="button"
                 aria-label="ลบลูกค้า"
-                onClick={e => { e.stopPropagation(); setSelectedCustomer(null) }}
-                onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); setSelectedCustomer(null) } }}
-                className="text-blue-400 hover:text-blue-600 text-lg leading-none"
-              >×</span>
-            </button>
+                onClick={() => setSelectedCustomer(null)}
+                className="text-blue-400 hover:text-blue-600 text-lg leading-none px-1.5 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+              >×</button>
+            </div>
             {hasAllergy && (
               <div className="mt-1.5 flex gap-1.5 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 text-xs text-amber-700">
                 <span className="shrink-0" aria-hidden="true">⚠</span>
@@ -311,6 +306,9 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
           type="number"
           name="received"
           autoComplete="off"
+          inputMode="decimal"
+          min="0"
+          step="0.01"
           placeholder="รับเงิน (฿) * — F2"
           value={received}
           onChange={e => setReceived(e.target.value)}
@@ -336,7 +334,7 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
           disabled={loading || items.length === 0 || !received.trim()}
           className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
         >
-          {loading ? 'กำลังบันทึก...' : 'ออกใบเสร็จ'}
+          {loading ? 'กำลังบันทึก…' : 'ออกใบเสร็จ'}
         </button>
       </div>
       </div>

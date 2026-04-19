@@ -7,6 +7,32 @@
   box-sizing: border-box;
 }
 
+/* ── Interactive defaults ───────────────────────────────────────────────── */
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: rgba(59, 130, 246, 0.15);
+  touch-action: manipulation;
+}
+
+/* Default focus ring for inputs/selects/textareas that only set
+   `focus:outline-none`. Components that opt-in to their own focus-visible
+   ring will visually override this (same property, higher specificity via
+   utility ordering). */
+:where(input, select, textarea):focus-visible {
+  outline: 2px solid rgb(96 165 250);
+  outline-offset: 1px;
+  border-color: rgb(96 165 250);
+}
+
+/* Honor reduced motion preference globally. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── Font size scaling — controlled by <html data-font="..."> ─────────────── */
 html[data-font="small"]  { font-size: 14px; }
 html[data-font="normal"] { font-size: 16px; }
@@ -28,6 +54,9 @@ body {
 /* ── Dark theme — minimal overrides that affect the most common surface/text
    utility classes without rewriting every component. Deeper per-component
    dark styling can be added incrementally with Tailwind `dark:` utilities. ── */
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
 html[data-theme="dark"] body {
   background: #0f172a;
   color: #e5e7eb;

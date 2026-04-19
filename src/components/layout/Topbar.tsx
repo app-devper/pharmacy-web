@@ -8,6 +8,7 @@ const pageTitles: Record<string, string> = {
   '/sell':      'หน้าขายยา',
   '/sales':     'ประวัติการขาย',
   '/stock':     'สต็อกยา',
+  '/stock/new': 'เพิ่มยาใหม่',
   '/expiry':    'จัดการวันหมดอายุ',
   '/customers': 'ลูกค้า',
   '/suppliers': 'ซัพพลายเออร์',
@@ -40,7 +41,10 @@ export default function Topbar() {
     navigate('/login')
   }
 
-  const title = pageTitles[pathname] ?? ''
+  // Pattern match for dynamic routes (e.g. /stock/:id/edit)
+  const resolvedTitle = pageTitles[pathname]
+    ?? (/^\/stock\/[^/]+\/edit$/.test(pathname) ? 'แก้ไขยา' : '')
+  const title = resolvedTitle
   const dateStr = time.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
   const timeStr = time.toLocaleTimeString('th-TH')
 

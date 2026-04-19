@@ -57,7 +57,7 @@ export default function SuppliersPage() {
         <div className="flex-1" />
         <input
           type="text"
-          placeholder="ค้นหาชื่อ / ผู้ติดต่อ / เบอร์โทร..."
+          placeholder="ค้นหาชื่อ / ผู้ติดต่อ / เบอร์โทร…"
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="border border-gray-200 rounded-xl px-3 py-2 text-sm w-60 focus:outline-none focus:border-blue-400"

@@ -63,7 +63,7 @@ export default function SalesHistoryPage() {
             <label className="block text-xs font-medium text-gray-500 mb-1">ค้นหา</label>
             <input
               type="text"
-              placeholder="เลขบิล หรือ ชื่อลูกค้า..."
+              placeholder="เลขบิล หรือ ชื่อลูกค้า…"
               value={q}
               onChange={e => setQ(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && load()}

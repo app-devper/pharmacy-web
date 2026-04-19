@@ -19,6 +19,8 @@ import MovementsPage from './pages/MovementsPage'
 import UsersPage from './pages/UsersPage'
 import ProfilePage from './pages/ProfilePage'
 import SettingsPage from './pages/SettingsPage'
+import AddDrugPage from './pages/AddDrugPage'
+import EditDrugPage from './pages/EditDrugPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -27,7 +29,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="mt-3 text-sm text-gray-500">กำลังตรวจสอบสิทธิ์...</p>
+          <p className="mt-3 text-sm text-gray-500">กำลังตรวจสอบสิทธิ์…</p>
         </div>
       </div>
     )
@@ -54,6 +56,8 @@ export default function App() {
           <Route path="sell" element={<SellPage />} />
           <Route path="sales" element={<SalesHistoryPage />} />
           <Route path="stock" element={<StockPage />} />
+          <Route path="stock/new"       element={<AdminRoute><AddDrugPage /></AdminRoute>} />
+          <Route path="stock/:id/edit"  element={<AdminRoute><EditDrugPage /></AdminRoute>} />
           <Route path="imports"   element={<AdminRoute><ImportPage /></AdminRoute>} />
           <Route path="suppliers" element={<AdminRoute><SuppliersPage /></AdminRoute>} />
           <Route path="customers" element={<CustomersPage />} />

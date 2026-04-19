@@ -188,7 +188,7 @@ export default function ReturnSaleModal({ sale, items, existingReturns, onClose,
             onClick={handleSave}
             disabled={!canSave}
           >
-            {loading ? 'กำลังบันทึก...' : 'ยืนยันคืนยา'}
+            {loading ? 'กำลังบันทึก…' : 'ยืนยันคืนยา'}
           </Button>
         </div>
       </div>

@@ -64,7 +64,7 @@ export default function VoidSaleModal({ sale, onVoided, onClose }: Props) {
             <textarea
               value={reason}
               onChange={e => setReason(e.target.value)}
-              placeholder="ระบุเหตุผลในการยกเลิกบิล..."
+              placeholder="ระบุเหตุผลในการยกเลิกบิล…"
               rows={3}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-400 resize-none"
             />
@@ -83,7 +83,7 @@ export default function VoidSaleModal({ sale, onVoided, onClose }: Props) {
               disabled={saving || !reason.trim()}
               className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg py-2 text-sm font-medium transition-colors"
             >
-              {saving ? 'กำลังดำเนินการ...' : 'ยืนยันยกเลิกบิล'}
+              {saving ? 'กำลังดำเนินการ…' : 'ยืนยันยกเลิกบิล'}
             </button>
           </div>
         </div>

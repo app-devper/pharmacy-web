@@ -1,18 +1,21 @@
 import { SaleResponse, CartItem } from '../../types/sale'
 import { printReceipt } from '../../utils/printReceipt'
-import { itemBasePrice, useCart } from '../../context/CartContext'
+import { itemBasePrice } from '../../context/CartContext'
 import { useSettings } from '../../context/SettingsContext'
 import { getTierLabel } from '../../utils/pricing'
+import type { PriceTier } from '../../types/drug'
 
 interface Props {
   result: SaleResponse
   items: CartItem[]
+  /** Pricing tier at the moment of checkout (captured before the cart clears). */
+  tier: PriceTier
   onClose: () => void
 }
 
-export default function ReceiptModal({ result, items, onClose }: Props) {
+export default function ReceiptModal({ result, items, tier, onClose }: Props) {
   const { settings } = useSettings()
-  const { priceTier } = useCart()
+  const priceTier = tier
   const date = new Date().toLocaleDateString('th-TH', {
     year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
   })

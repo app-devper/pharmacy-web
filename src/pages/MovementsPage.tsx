@@ -168,7 +168,7 @@ export default function MovementsPage() {
             disabled={exporting || total === 0}
             className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors disabled:opacity-40"
           >
-            {exporting ? 'กำลัง export...' : '⬇ Export XLSX'}
+            {exporting ? 'กำลัง export…' : '⬇ Export XLSX'}
           </button>
         </div>
 

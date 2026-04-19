@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { DRUG_TYPES } from '../types/drug'
 import { useDrugs } from '../hooks/useDrugs'
 import StockMetrics from '../components/stock/StockMetrics'
 import DrugTable from '../components/stock/DrugTable'
-import AddDrugModal from '../components/stock/AddDrugModal'
 import ImportDrugsModal from '../components/stock/ImportDrugsModal'
 import ReorderSuggestionsModal from '../components/stock/ReorderSuggestionsModal'
 import Button from '../components/ui/Button'
@@ -12,10 +12,10 @@ import { exportStockXlsx } from '../utils/exportXlsx'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 
 export default function StockPage() {
+  const navigate = useNavigate()
   const isAdmin = useIsAdmin()
   // Shared drug cache (DrugsContext). Switching between Sell/Stock no longer refetches.
   const { drugs, loading, reload } = useDrugs()
-  const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [showReorder, setShowReorder] = useState(false)
   const [search, setSearch] = useState('')
@@ -41,7 +41,7 @@ export default function StockPage() {
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
           <input
             type="text"
-            placeholder="ค้นหายา..."
+            placeholder="ค้นหายา…"
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
@@ -68,7 +68,7 @@ export default function StockPage() {
                 className="border-indigo-300 text-indigo-700 hover:bg-indigo-50">
                 🔄 แนะนำสั่งซื้อ
               </Button>
-              <Button onClick={() => setShowAdd(true)}>+ เพิ่มยา</Button>
+              <Button onClick={() => navigate('/stock/new')}>+ เพิ่มยา</Button>
             </>
           )}
         </div>
@@ -82,7 +82,6 @@ export default function StockPage() {
         )}
         {loading ? <Spinner /> : <DrugTable drugs={filtered} onReload={load} />}
       </div>
-      {showAdd && <AddDrugModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load() }} />}
       {showImport && (
         <ImportDrugsModal
           onClose={() => setShowImport(false)}

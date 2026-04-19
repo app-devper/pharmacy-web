@@ -57,11 +57,15 @@ export default function ExpiryAlert() {
     <div ref={ref} className="relative">
       {/* Bell button */}
       <button
+        type="button"
         onClick={() => setOpen(o => !o)}
-        className="relative p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
+        aria-label={`แจ้งเตือนใกล้หมดอายุ ${lots.length} รายการ`}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        className="relative p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
         title="แจ้งเตือนใกล้หมดอายุ"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
@@ -78,7 +82,7 @@ export default function ExpiryAlert() {
             <span className="text-sm font-semibold text-gray-800">
               ⚠ ใกล้หมดอายุ ({lots.length} รายการ)
             </span>
-            <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+            <button type="button" onClick={() => setOpen(false)} aria-label="ปิด" className="text-gray-400 hover:text-gray-600 text-lg leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">×</button>
           </div>
 
           {/* Groups */}

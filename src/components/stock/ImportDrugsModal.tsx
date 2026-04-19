@@ -218,7 +218,7 @@ export default function ImportDrugsModal({ onClose, onImported }: Props) {
               ← เลือกไฟล์ใหม่
             </Button>
             <Button className="flex-1" onClick={handleImport} disabled={loading}>
-              {loading ? 'กำลังนำเข้า...' : `นำเข้า ${drugs.length} รายการ`}
+              {loading ? 'กำลังนำเข้า…' : `นำเข้า ${drugs.length} รายการ`}
             </Button>
           </div>
         </div>

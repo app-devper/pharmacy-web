@@ -92,7 +92,7 @@ export default function Ky10Page() {
                 ชื่อยา * <span className="text-purple-500 font-normal">— แสดงรายการที่ผูก ขย.10</span>
               </label>
               <KyDrugSelect kyType="ky10" value={form.drug_name}
-                onChange={(name) => set('drug_name', name)} placeholder="พิมพ์หรือเลือกชื่อยา..." />
+                onChange={(name) => set('drug_name', name)} placeholder="พิมพ์หรือเลือกชื่อยา…" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               {inp('จำนวน', 'qty', 'number')}
@@ -112,7 +112,7 @@ export default function Ky10Page() {
             <div className="flex gap-2 pt-1">
               <Button variant="secondary" className="flex-1" onClick={() => setShowAdd(false)}>ยกเลิก</Button>
               <Button className="flex-1" onClick={handleSave} disabled={saving}>
-                {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+                {saving ? 'กำลังบันทึก…' : 'บันทึก'}
               </Button>
             </div>
           </div>

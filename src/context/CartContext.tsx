@@ -25,14 +25,17 @@ function rowMatches(item: CartItem, id: string, unit: string): boolean {
  */
 export function itemBasePrice(item: CartItem, tier: PriceTier = 'retail'): number {
   const factor = item.selected_unit_factor ?? 1
+  // Round per-base prices to 2 decimals so fractional division (e.g. ฿100/3)
+  // doesn't show long-tail floats on the cart or leak into receipt math.
+  const round2 = (n: number) => Math.round(n * 100) / 100
   if (factor > 1 && item.selected_unit) {
     const alt = item.alt_units?.find(a => a.name === item.selected_unit)
     if (alt) {
       const perAlt = resolvePrice(alt.sell_price, alt.prices, tier)
-      return perAlt / factor
+      return round2(perAlt / factor)
     }
     // Fallback: stored add-time price if alt_units metadata is missing
-    return (item.selected_unit_price ?? 0) / factor
+    return round2((item.selected_unit_price ?? 0) / factor)
   }
   return resolvePrice(getDrugSellPrice(item), item.prices, tier)
 }
@@ -116,9 +119,10 @@ interface CartContextValue {
   selectedCustomer: Customer | null
   setSelectedCustomer: (c: Customer | null) => void
 
-  // Cart-wide pricing tier. Changing it reprices every line automatically.
+  // Cart-wide pricing tier. Read-only to consumers — the tier is derived
+  // from the selected customer (customer.price_tier) and resets to 'retail'
+  // whenever no customer is selected.
   priceTier: PriceTier
-  setPriceTier: (t: PriceTier) => void
 
   // cart-level discount (moved from Cart.tsx)
   discountInput: string
@@ -203,20 +207,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'CHANGE_QTY', id, unit, delta })
   const setItemDiscount = (id: string, unit: string, discount: number) =>
     dispatch({ type: 'SET_ITEM_DISCOUNT', id, unit, discount, tier: priceTier })
-  const setPriceTier = (t: PriceTier) => setPriceTierRaw(t)
 
   // When a customer is picked and they have a default tier, switch the cart
   // to match. Clearing the customer reverts to retail. Wrapped so SellPage
   // doesn't need to know about this coupling.
   const selectCustomer = (c: Customer | null) => {
     setSelectedCustomer(c)
-    if (!c) {
-      setPriceTierRaw('retail')
-      return
-    }
+    // Default to retail for null OR when the customer has no explicit tier.
+    // Prevents "sticky wholesale" when switching from a wholesale customer to a
+    // walk-in (whose price_tier is "" in storage). Any non-empty non-retail
+    // value is passed through — supports custom tier names (vip, staff, …).
+    if (!c) { setPriceTierRaw('retail'); return }
     const t = c.price_tier
-    if (t === 'retail' || t === 'regular' || t === 'wholesale') {
+    if (t && t !== 'retail') {
       setPriceTierRaw(t)
+    } else {
+      setPriceTierRaw('retail')
     }
   }
 
@@ -291,7 +297,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     <CartContext.Provider value={{
       items, addToCart, changeQty, setItemDiscount, clearCart, total,
       selectedCustomer, setSelectedCustomer: selectCustomer,
-      priceTier, setPriceTier,
+      priceTier,
       discountInput, discountType, setDiscountInput, setDiscountType,
       activeSlot, slots, switchToSlot, discardSlot,
     }}>

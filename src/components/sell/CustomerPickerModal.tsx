@@ -38,7 +38,7 @@ export default function CustomerPickerModal({ onSelect, onAddNew, onClose }: Pro
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="ค้นหาชื่อ / เบอร์โทร..."
+            placeholder="ค้นหาชื่อ / เบอร์โทร…"
             className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
           />
         </div>

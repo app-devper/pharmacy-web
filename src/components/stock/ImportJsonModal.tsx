@@ -248,7 +248,7 @@ export default function ImportJsonModal({ onClose, onImported }: Props) {
               ← เลือกไฟล์ใหม่
             </Button>
             <Button className="flex-1" onClick={handleImport} disabled={loading}>
-              {loading ? 'กำลังนำเข้า...' : `นำเข้า ${drugs.length.toLocaleString()} รายการ`}
+              {loading ? 'กำลังนำเข้า…' : `นำเข้า ${drugs.length.toLocaleString()} รายการ`}
             </Button>
           </div>
         </div>

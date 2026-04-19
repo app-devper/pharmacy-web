@@ -1,11 +1,15 @@
-/** 3-tier price set. 0 on regular/wholesale means "not set" → fallback to retail. */
-export interface PriceTiers {
-  retail: number
-  regular: number
-  wholesale: number
-}
+/**
+ * Dynamic tier → price map. `retail` is the default; any other key
+ * ("regular", "wholesale", "vip", "staff", …) is a custom tier. 0 or missing
+ * means "not set" and falls back to retail via resolvePrice().
+ */
+export type PriceTiers = Record<string, number>
 
-export type PriceTier = 'retail' | 'regular' | 'wholesale'
+/** Tier identifier. Any string, but `'retail'` / `'regular'` / `'wholesale'` are conventional. */
+export type PriceTier = string
+
+/** Conventional tier keys used by the default customer dropdown. */
+export const BUILTIN_TIERS = ['retail', 'regular', 'wholesale'] as const
 
 /** Alternate selling unit. 1 alt unit = `factor` base units. */
 export interface AltUnit {
@@ -13,7 +17,9 @@ export interface AltUnit {
   factor: number       // >= 2
   sell_price: number   // per alt unit — mirrored from prices.retail
   prices?: PriceTiers
-  barcode?: string     // optional, for scanner matching (Phase 2)
+  barcode?: string     // optional, for scanner matching
+  /** If true, hide this alt unit from the sell-page picker. Base stays visible. */
+  hidden?: boolean
 }
 
 export interface Drug {

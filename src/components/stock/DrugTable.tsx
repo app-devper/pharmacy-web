@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Drug } from '../../types/drug'
 import { getDrugSellPrice } from '../../types/drug'
 import { StockBadge, TypeBadge, KyBadges } from '../ui/Badge'
-import EditDrugModal from './EditDrugModal'
 import LotListModal from './LotListModal'
 import StockAdjustmentModal from './StockAdjustmentModal'
 import AdjustmentLogModal from './AdjustmentLogModal'
@@ -15,9 +15,9 @@ interface Props {
 }
 
 export default function DrugTable({ drugs, onReload }: Props) {
+  const navigate = useNavigate()
   const isAdmin = useIsAdmin()
   const { patchStocks } = useDrugs()
-  const [editing, setEditing]       = useState<Drug | null>(null)
   const [lotDrug, setLotDrug]       = useState<Drug | null>(null)
   const [adjustDrug, setAdjustDrug] = useState<Drug | null>(null)
   const [logDrug, setLogDrug]       = useState<Drug | null>(null)
@@ -46,13 +46,17 @@ export default function DrugTable({ drugs, onReload }: Props) {
               <th className="text-right py-3 px-3 text-xs font-semibold text-gray-500 uppercase">สต็อก</th>
               <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase">สถานะ</th>
               <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase">บาร์โค้ด</th>
-              <th className="py-3 px-3"></th>
+              <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase">จัดการ</th>
             </tr>
           </thead>
           <tbody>
             {drugs.map(drug => {
               return (
-                <tr key={drug.id} className="border-b border-gray-50 hover:bg-gray-50">
+                <tr
+                  key={drug.id}
+                  onClick={() => setLogDrug(drug)}
+                  className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer"
+                >
                   <td className="py-3 px-3 font-medium text-gray-800">
                     {drug.name}
                     {drug.reg_no && <div className="text-xs text-gray-400 font-normal">{drug.reg_no}</div>}
@@ -70,27 +74,27 @@ export default function DrugTable({ drugs, onReload }: Props) {
                   <td className="py-3 px-3 text-right font-medium whitespace-nowrap">{drug.stock} {drug.unit}</td>
                   <td className="py-3 px-3 whitespace-nowrap"><StockBadge stock={drug.stock} minStock={drug.min_stock} /></td>
                   <td className="py-3 px-3 text-gray-400 text-xs">{drug.barcode || '—'}</td>
-                  <td className="py-3 px-3 whitespace-nowrap">
-                    <div className="flex gap-2 flex-nowrap">
+                  <td className="py-3 px-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                    <div className="flex gap-1 flex-nowrap">
                       {isAdmin && (
                         <button
-                          onClick={() => setEditing(drug)}
-                          className="text-xs text-gray-500 hover:text-gray-700 hover:underline whitespace-nowrap"
+                          onClick={() => navigate(`/stock/${drug.id}/edit`)}
+                          className="text-xs px-2 py-1 rounded text-blue-700 hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap"
                         >แก้ไข</button>
                       )}
                       <button
                         onClick={() => setLotDrug(drug)}
-                        className="text-xs text-blue-600 hover:underline whitespace-nowrap"
+                        className="text-xs px-2 py-1 rounded text-indigo-600 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 whitespace-nowrap"
                       >ล็อต</button>
                       {isAdmin && (
                         <button
                           onClick={() => setAdjustDrug(drug)}
-                          className="text-xs text-emerald-600 hover:underline whitespace-nowrap"
+                          className="text-xs px-2 py-1 rounded text-emerald-700 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 whitespace-nowrap"
                         >ปรับสต็อก</button>
                       )}
                       <button
                         onClick={() => setLogDrug(drug)}
-                        className="text-xs text-gray-400 hover:text-gray-600 hover:underline whitespace-nowrap"
+                        className="text-xs px-2 py-1 rounded text-gray-500 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 whitespace-nowrap"
                       >ประวัติ</button>
                     </div>
                   </td>
@@ -106,13 +110,6 @@ export default function DrugTable({ drugs, onReload }: Props) {
         </table>
       </div>
 
-      {editing && (
-        <EditDrugModal
-          drug={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); onReload() }}
-        />
-      )}
       {lotDrug && (
         <LotListModal
           drug={lotDrug}

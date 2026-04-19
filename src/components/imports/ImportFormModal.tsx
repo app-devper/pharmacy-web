@@ -209,7 +209,7 @@ export default function ImportFormModal({ existingId, onClose, onSaved }: Props)
                     list="supplier-datalist"
                     value={header.supplier}
                     onChange={e => setHeaderField('supplier', e.target.value)}
-                    placeholder="พิมพ์หรือเลือกซัพพลายเออร์..."
+                    placeholder="พิมพ์หรือเลือกซัพพลายเออร์…"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
                   />
                 </div>
@@ -253,7 +253,7 @@ export default function ImportFormModal({ existingId, onClose, onSaved }: Props)
                                   list="import-drug-datalist"
                                   value={row.drug_name}
                                   onChange={e => onDrugNameChange(idx, e.target.value)}
-                                  placeholder="พิมพ์ชื่อยา..."
+                                  placeholder="พิมพ์ชื่อยา…"
                                   className={`w-full border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-400 ${hasError && !row.drug_id ? 'border-red-300' : 'border-gray-200'}`}
                                 />
                                 {row.drug_name && !row.drug_id && (
@@ -358,10 +358,10 @@ export default function ImportFormModal({ existingId, onClose, onSaved }: Props)
               <Button variant="secondary" onClick={onClose} className="w-24">ยกเลิก</Button>
               <div className="flex-1" />
               <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>
-                {saving ? 'กำลังบันทึก...' : 'บันทึกแบบร่าง'}
+                {saving ? 'กำลังบันทึก…' : 'บันทึกแบบร่าง'}
               </Button>
               <Button onClick={handleConfirm} disabled={saving}>
-                {saving ? 'กำลังยืนยัน...' : '✓ ยืนยันรับสินค้า'}
+                {saving ? 'กำลังยืนยัน…' : '✓ ยืนยันรับสินค้า'}
               </Button>
             </div>
           </>

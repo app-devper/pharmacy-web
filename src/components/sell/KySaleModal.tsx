@@ -7,6 +7,7 @@ import { useToast } from '../../hooks/useToast'
 import { getDrugSellPrice } from '../../types/drug'
 import type { CartItem, SaleItemInput, SaleResponse } from '../../types/sale'
 import type { Customer } from '../../types/customer'
+import type { PriceTier } from '../../types/drug'
 
 export interface CheckoutData {
   cartItems: CartItem[]
@@ -16,11 +17,12 @@ export interface CheckoutData {
   customer_id?: string
   selectedCustomer: Customer | null
   netTotal: number
+  priceTier: PriceTier
 }
 
 interface Props {
   data: CheckoutData
-  onDone: (result: SaleResponse, items: CartItem[]) => void
+  onDone: (result: SaleResponse, items: CartItem[], tier: PriceTier) => void
   onCancel: () => void
 }
 
@@ -156,7 +158,7 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
       // 3. Cleanup cart
       clearCart()
       setSelectedCustomer(null)
-      onDone(result, data.cartItems)
+      onDone(result, data.cartItems, data.priceTier)
     } catch (e: unknown) {
       showToast((e as Error).message || 'เกิดข้อผิดพลาด', 'error')
     } finally {
@@ -309,7 +311,7 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
             disabled={saving}
             className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm text-white font-semibold transition-colors disabled:opacity-50"
           >
-            {saving ? 'กำลังบันทึก...' : '✓ บันทึกและออกใบเสร็จ'}
+            {saving ? 'กำลังบันทึก…' : '✓ บันทึกและออกใบเสร็จ'}
           </button>
         </div>
       </div>

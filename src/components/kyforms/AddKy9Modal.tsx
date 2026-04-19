@@ -70,7 +70,7 @@ export default function AddKy9Modal({ onClose, onSaved }: Props) {
             kyType="ky9"
             value={form.drug_name}
             onChange={handleDrugSelect}
-            placeholder="พิมพ์หรือเลือกชื่อยา..."
+            placeholder="พิมพ์หรือเลือกชื่อยา…"
           />
         </div>
 
@@ -107,7 +107,7 @@ export default function AddKy9Modal({ onClose, onSaved }: Props) {
         <div className="flex gap-2 pt-2">
           <Button variant="secondary" className="flex-1" onClick={onClose}>ยกเลิก</Button>
           <Button className="flex-1" onClick={handleSave} disabled={loading}>
-            {loading ? 'กำลังบันทึก...' : 'บันทึก'}
+            {loading ? 'กำลังบันทึก…' : 'บันทึก'}
           </Button>
         </div>
       </div>

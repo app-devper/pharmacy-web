@@ -16,7 +16,8 @@ export default function DrugCard({ drug, onAdd, highlighted }: Props) {
   const oos = drug.stock === 0
   // Price displayed on the card + popover reflects the cart's current tier.
   const price = resolvePrice(getDrugSellPrice(drug), drug.prices, priceTier)
-  const alts = drug.alt_units ?? []
+  // Only show alt units that are flagged visible (default = visible)
+  const alts = (drug.alt_units ?? []).filter(a => !a.hidden)
   const hasAlts = alts.length > 0
   const [menuOpen, setMenuOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)

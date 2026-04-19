@@ -107,7 +107,7 @@ export default function StockAdjustmentModal({ drug, onClose, onSaved }: Props) 
             value={note}
             onChange={e => setNote(e.target.value)}
             rows={2}
-            placeholder="รายละเอียดเพิ่มเติม..."
+            placeholder="รายละเอียดเพิ่มเติม…"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 resize-none"
           />
         </div>
@@ -120,7 +120,7 @@ export default function StockAdjustmentModal({ drug, onClose, onSaved }: Props) 
             onClick={handleSave}
             disabled={!canSave || loading}
           >
-            {loading ? 'กำลังบันทึก...' : 'ยืนยันปรับสต็อก'}
+            {loading ? 'กำลังบันทึก…' : 'ยืนยันปรับสต็อก'}
           </Button>
         </div>
       </div>

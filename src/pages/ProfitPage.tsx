@@ -142,7 +142,7 @@ export default function ProfitPage() {
             </Button>
           )}
           <Button onClick={() => fetch()} disabled={loading}>
-            {loading ? 'กำลังโหลด...' : 'ดูรายงาน'}
+            {loading ? 'กำลังโหลด…' : 'ดูรายงาน'}
           </Button>
         </div>
       </div>

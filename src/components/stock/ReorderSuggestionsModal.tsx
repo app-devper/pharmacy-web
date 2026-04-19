@@ -282,7 +282,7 @@ export default function ReorderSuggestionsModal({ onClose, onCreated }: Props) {
               <div className="flex gap-2">
                 <Button variant="secondary" onClick={onClose} disabled={saving}>ยกเลิก</Button>
                 <Button onClick={handleCreate} disabled={saving || selectedCount === 0}>
-                  {saving ? 'กำลังสร้าง...' : `สร้างใบนำเข้า (${selectedCount})`}
+                  {saving ? 'กำลังสร้าง…' : `สร้างใบนำเข้า (${selectedCount})`}
                 </Button>
               </div>
             </div>

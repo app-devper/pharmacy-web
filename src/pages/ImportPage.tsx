@@ -83,7 +83,7 @@ export default function ImportPage() {
         )}
         <input
           type="text"
-          placeholder="ค้นหาเลขที่ / ผู้ขาย..."
+          placeholder="ค้นหาเลขที่ / ผู้ขาย…"
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="border border-gray-200 rounded-xl px-3 py-2 text-sm w-52 focus:outline-none focus:border-blue-400"
