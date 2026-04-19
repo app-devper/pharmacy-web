@@ -262,16 +262,18 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
         <button
           onClick={() => setShowCartDiscount(true)}
           disabled={items.length === 0}
-          className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg border border-dashed border-gray-200 hover:border-rose-300 hover:bg-rose-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-between px-2 py-1 rounded hover:bg-rose-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
         >
           <span className="text-sm text-gray-500">ส่วนลดรวม</span>
           {cartDiscountAmt > 0
             ? <span className="text-sm font-medium text-rose-500">
                 -฿{cartDiscountAmt.toLocaleString(undefined, { maximumFractionDigits: 2 })} ✏
               </span>
-            : <span className="text-xs text-blue-400">+ เพิ่ม</span>
+            : <span className="text-xs text-gray-400">+ เพิ่ม</span>
           }
         </button>
+
+        <div className="border-t border-gray-100" />
 
         {/* ยอดสุทธิ */}
         <div className="flex justify-between items-baseline">
