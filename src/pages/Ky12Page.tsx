@@ -11,6 +11,7 @@ import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import { DRUG_UNITS } from '../types/drug'
 import { exportKy12Xlsx } from '../utils/exportXlsx'
+import { todayBangkok, monthBangkok } from '../utils/date'
 
 const columns = [
   { key: 'date', label: 'วันที่' },
@@ -26,7 +27,7 @@ const columns = [
 ]
 
 const empty = {
-  date: new Date().toISOString().split('T')[0],
+  date: todayBangkok(),
   rx_no: '', patient_name: '', doctor: '', hospital: '',
   drug_name: '', qty: '', unit: 'เม็ด', total_value: '', status: 'จ่ายแล้ว',
 }
@@ -34,7 +35,7 @@ const empty = {
 export default function Ky12Page() {
   const [entries, setEntries] = useState<Ky12[]>([])
   const [loading, setLoading] = useState(true)
-  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7))
+  const [month, setMonth] = useState(() => monthBangkok())
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState(empty)
   const [saving, setSaving] = useState(false)

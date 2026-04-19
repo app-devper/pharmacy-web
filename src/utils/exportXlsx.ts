@@ -5,6 +5,7 @@ import type { Ky9, Ky10, Ky11, Ky12 } from '../types/kyforms'
 import type { EodReport } from '../types/report'
 import type { ProfitReport } from '../types/profitReport'
 import type { ExpiringLot } from '../types/lot'
+import { todayBangkok } from './date'
 
 function save(wb: XLSX.WorkBook, filename: string) {
   XLSX.writeFile(wb, filename)
@@ -27,7 +28,7 @@ export function exportExpiryXlsx(lots: ExpiringLot[], label: string) {
     'คงเหลือ':    l.remaining,
     'สถานะ':      l.days_left < 0 ? 'หมดอายุแล้ว' : `อีก ${l.days_left} วัน`,
   }))
-  save(make(rows, 'ยาหมดอายุ'), `expiry-${label}-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  save(make(rows, 'ยาหมดอายุ'), `expiry-${label}-${todayBangkok()}.xlsx`)
 }
 
 // ─── Stock ───────────────────────────────────────────────────────────────────

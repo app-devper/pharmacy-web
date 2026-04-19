@@ -8,7 +8,7 @@ import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import ImportJsonModal from '../components/stock/ImportJsonModal'
 import type { Settings } from '../types/setting'
-import { defaultSettings } from '../types/setting'
+import { defaultSettings, TIMEZONE_OPTIONS } from '../types/setting'
 
 type Tab = 'store' | 'receipt' | 'stock' | 'pharmacist' | 'ky' | 'import'
 
@@ -69,6 +69,7 @@ export default function SettingsPage() {
         stock:      form.stock,
         pharmacist: form.pharmacist,
         ky:         form.ky,
+        timezone:   form.timezone || defaultSettings.timezone,
       })
       setSettings(saved)
       showToast('บันทึกการตั้งค่าเรียบร้อย', 'success')
@@ -162,6 +163,23 @@ export default function SettingsPage() {
             <p className="text-xs text-gray-400">
               ข้อมูลร้านจะแสดงที่หัวใบเสร็จและเอกสารที่ export ออกไป
             </p>
+
+            <div className="border-t border-gray-100 pt-4">
+              <label className={labelCls}>เขตเวลา (Timezone)</label>
+              <select
+                value={form.timezone || defaultSettings.timezone}
+                onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))}
+                disabled={!isAdmin}
+                className={inputCls}
+              >
+                {TIMEZONE_OPTIONS.map(tz => (
+                  <option key={tz} value={tz}>{tz}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-gray-400 mt-1">
+                ใช้คำนวณ "วันนี้" / "เดือนนี้" ในรายงาน · เปลี่ยนเมื่อย้ายร้านข้ามประเทศ
+              </p>
+            </div>
           </>
         )}
 

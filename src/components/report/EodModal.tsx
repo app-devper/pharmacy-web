@@ -4,6 +4,7 @@ import { getEod } from '../../api/report'
 import { exportEodXlsx } from '../../utils/exportXlsx'
 import Button from '../ui/Button'
 import Spinner from '../ui/Spinner'
+import { todayBangkok } from '../../utils/date'
 
 interface Props { onClose: () => void }
 
@@ -17,7 +18,7 @@ function MetricCard({ label, value, highlight }: { label: string; value: string;
 }
 
 export default function EodModal({ onClose }: Props) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayBangkok()
   const [date, setDate] = useState(today)
   const [report, setReport] = useState<EodReport | null>(null)
   const [loading, setLoading] = useState(false)

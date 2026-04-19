@@ -5,6 +5,7 @@ import { addLot } from '../../api/drugs'
 import { useToast } from '../../hooks/useToast'
 import { Drug, getDrugSellPrice } from '../../types/drug'
 import { genLotNumber } from '../../utils/lot'
+import { todayBangkok } from '../../utils/date'
 
 interface Props {
   drug: Drug
@@ -14,7 +15,7 @@ interface Props {
 
 export default function AddLotModal({ drug, onClose, onSaved }: Props) {
   const showToast = useToast()
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayBangkok()
   const [form, setForm] = useState({
     lot_number: '',
     expiry_date: '',

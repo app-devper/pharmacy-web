@@ -5,6 +5,7 @@ import KyDrugSelect from './KyDrugSelect'
 import { addKy9 } from '../../api/kyforms'
 import { useToast } from '../../hooks/useToast'
 import { DRUG_UNITS } from '../../types/drug'
+import { todayBangkok } from '../../utils/date'
 
 interface Props {
   onClose: () => void
@@ -13,7 +14,7 @@ interface Props {
 
 export default function AddKy9Modal({ onClose, onSaved }: Props) {
   const showToast = useToast()
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayBangkok()
   const [form, setForm] = useState({
     date: today, drug_name: '', reg_no: '', unit: 'เม็ด',
     qty: '', price_per_unit: '', seller: '', invoice_no: '',

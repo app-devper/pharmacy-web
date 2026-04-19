@@ -3,6 +3,7 @@ import type { Settings } from '../types/setting'
 import { defaultSettings } from '../types/setting'
 import { getSettings } from '../api/settings'
 import { useAuth } from './AuthContext'
+import { setAppTimezone } from '../utils/date'
 
 interface SettingsContextValue {
   settings: Settings
@@ -21,8 +22,17 @@ const Ctx = createContext<SettingsContextValue | null>(null)
  */
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const [settings, setSettings] = useState<Settings>(defaultSettings)
+  const [settings, setSettingsState] = useState<Settings>(defaultSettings)
   const [loading, setLoading] = useState(false)
+
+  // Wrapping setSettings lets us keep the date helpers' active timezone in sync
+  // whenever the cache is refreshed (via reload) or replaced (via SettingsPage
+  // save). Without this the app would boot with the default TZ and never pick
+  // up a user-configured value.
+  const setSettings = useCallback((s: Settings) => {
+    setSettingsState(s)
+    setAppTimezone(s.timezone)
+  }, [])
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -34,7 +44,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [setSettings])
 
   useEffect(() => {
     if (!user) return

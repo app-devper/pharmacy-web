@@ -8,6 +8,7 @@ import { getDrugSellPrice } from '../../types/drug'
 import type { CartItem, SaleItemInput, SaleResponse } from '../../types/sale'
 import type { Customer } from '../../types/customer'
 import type { PriceTier } from '../../types/drug'
+import { todayBangkok } from '../../utils/date'
 
 export interface CheckoutData {
   cartItems: CartItem[]
@@ -26,7 +27,9 @@ interface Props {
   onCancel: () => void
 }
 
-const today = new Date().toISOString().split('T')[0]
+// Evaluated lazily (not at module-load) so a session that spans midnight uses
+// the new Bangkok day on the next KY form submission.
+const getToday = () => todayBangkok()
 
 const KY_LABELS: Record<string, { label: string; color: string }> = {
   ky10: { label: 'ขย.10 ยาควบคุมพิเศษ', color: 'bg-purple-100 text-purple-700' },
@@ -98,7 +101,7 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
 
       // 2. Create KY records (if not skipped)
       if (withKy) {
-        const date = today
+        const date = getToday()
         const kyErrors: string[] = []
 
         for (const item of ky10Items) {

@@ -14,6 +14,7 @@ import DayPicker from '../components/ui/DayPicker'
 import Button from '../components/ui/Button'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import Spinner from '../components/ui/Spinner'
+import { monthBangkok } from '../utils/date'
 
 const DAY_OPTIONS = [7, 14, 30]
 
@@ -59,7 +60,7 @@ export default function ReportPage() {
   }, [days, showToast, isFirstDays])
 
   const currentMonthProfit = useMemo(() => {
-    const thisMonth = new Date().toISOString().slice(0, 7)
+    const thisMonth = monthBangkok()
     return monthly.find(m => m.month === thisMonth)?.profit
   }, [monthly])
 

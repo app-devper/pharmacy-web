@@ -5,6 +5,7 @@ import { fmtDateTime, fmtDateThai } from '../utils/formatters'
 import type { Movement, MovementType } from '../types/movement'
 import Spinner from '../components/ui/Spinner'
 import * as XLSX from 'xlsx'
+import { todayBangkok, daysAgoBangkokStr } from '../utils/date'
 
 const PAGE_SIZE = 50
 
@@ -23,14 +24,14 @@ const ALL_TYPES: MovementType[] = ['import', 'sale', 'return', 'adjustment', 'wr
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+// Date pickers operate on Bangkok calendar days so early-morning records
+// (00:01–07:00 local) don't get mis-bucketed into the previous UTC day.
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
+  return todayBangkok()
 }
 
 function daysAgoStr(n: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  return d.toISOString().slice(0, 10)
+  return daysAgoBangkokStr(n)
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────

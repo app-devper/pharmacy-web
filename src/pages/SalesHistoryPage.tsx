@@ -6,9 +6,10 @@ import { fmtDateTime } from '../utils/formatters'
 import SaleDetailModal from '../components/sell/SaleDetailModal'
 import Spinner from '../components/ui/Spinner'
 import { useDrugs } from '../hooks/useDrugs'
+import { todayBangkok } from '../utils/date'
 
 export default function SalesHistoryPage() {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayBangkok()
   const [from, setFrom] = useState(today)
   const [to,   setTo]   = useState(today)
   const [q,    setQ]    = useState('')

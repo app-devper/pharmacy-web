@@ -35,6 +35,8 @@ export interface Settings {
   stock: StockSettings
   pharmacist: PharmacistInfo
   ky: KYSettings
+  /** IANA timezone name (e.g. "Asia/Bangkok"). Empty → app default. */
+  timezone: string
   updated_at: string
 }
 
@@ -44,7 +46,21 @@ export interface SettingsInput {
   stock: StockSettings
   pharmacist: PharmacistInfo
   ky: KYSettings
+  timezone: string
 }
+
+/** Timezones offered in the Settings UI — extend as needed. */
+export const TIMEZONE_OPTIONS: readonly string[] = [
+  'Asia/Bangkok',
+  'Asia/Vientiane',
+  'Asia/Phnom_Penh',
+  'Asia/Yangon',
+  'Asia/Ho_Chi_Minh',
+  'Asia/Singapore',
+  'Asia/Kuala_Lumpur',
+  'Asia/Jakarta',
+  'UTC',
+]
 
 export const defaultSettings: Settings = {
   store: { name: 'ร้านยา', address: '', phone: '', tax_id: '' },
@@ -62,5 +78,6 @@ export const defaultSettings: Settings = {
   },
   pharmacist: { name: '', license_no: '' },
   ky: { skip_auto: false, default_buyer_address: '' },
+  timezone: 'Asia/Bangkok',
   updated_at: '',
 }

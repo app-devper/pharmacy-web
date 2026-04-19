@@ -8,6 +8,7 @@ import KyTable from '../components/kyforms/KyTable'
 import AddKy9Modal from '../components/kyforms/AddKy9Modal'
 import Spinner from '../components/ui/Spinner'
 import { exportKy9Xlsx } from '../utils/exportXlsx'
+import { monthBangkok } from '../utils/date'
 
 const columns = [
   { key: 'date', label: 'วันที่' },
@@ -24,7 +25,7 @@ const columns = [
 export default function Ky9Page() {
   const [entries, setEntries] = useState<Ky9[]>([])
   const [loading, setLoading] = useState(true)
-  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7))
+  const [month, setMonth] = useState(() => monthBangkok())
   const [showAdd, setShowAdd] = useState(false)
   const showToast = useToast()
 

@@ -7,6 +7,7 @@ import { createImport } from '../../api/imports'
 import { useToast } from '../../hooks/useToast'
 import { useSettings } from '../../context/SettingsContext'
 import type { ReorderSuggestion } from '../../types/drug'
+import { todayBangkok } from '../../utils/date'
 
 interface Props {
   onClose: () => void
@@ -101,7 +102,7 @@ export default function ReorderSuggestionsModal({ onClose, onCreated }: Props) {
     if (selectedCount === 0) { showToast('กรุณาเลือกยาที่ต้องการสั่ง', 'error'); return }
     if (!supplier.trim()) { showToast('กรุณาระบุผู้จำหน่าย', 'error'); return }
 
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayBangkok()
     const poItems = items
       .filter(s => picks[s.drug_id]?.selected)
       .map(s => ({

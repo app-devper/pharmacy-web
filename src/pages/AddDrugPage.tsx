@@ -6,6 +6,7 @@ import { useToast } from '../hooks/useToast'
 import { useDrugs } from '../hooks/useDrugs'
 import { DRUG_TYPES, DRUG_UNITS, KY_REPORT_OPTIONS } from '../types/drug'
 import { genLotNumber } from '../utils/lot'
+import { todayBangkok, daysAgoBangkokStr } from '../utils/date'
 
 export default function AddDrugPage() {
   const navigate = useNavigate()
@@ -29,13 +30,11 @@ export default function AddDrugPage() {
     }
   }, [form.stock])
 
-  // Min date for expiry = tomorrow (backend requires strictly after today)
-  const tomorrow = (() => {
-    const d = new Date()
-    d.setDate(d.getDate() + 1)
-    return d.toISOString().split('T')[0]
-  })()
-  const todayStr = new Date().toISOString().split('T')[0]
+  // Min date for expiry = tomorrow (backend requires strictly after today).
+  // Computed in Bangkok TZ so early-morning submissions don't accept "today"
+  // as valid expiry.
+  const tomorrow = daysAgoBangkokStr(-1)
+  const todayStr = todayBangkok()
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 

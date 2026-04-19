@@ -6,28 +6,25 @@ import { fmtMoney } from '../utils/formatters'
 import { exportProfitXlsx } from '../utils/exportXlsx'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
+import { todayBangkok, daysAgoBangkokStr, lastMonthRangeBangkok } from '../utils/date'
 
 type SortCol = keyof Pick<DrugProfit, 'drug_name' | 'qty_sold' | 'revenue' | 'cost' | 'profit' | 'margin'>
 
+// All date math is anchored to Bangkok time so presets like "วันนี้" /
+// "เดือนนี้" align with the pharmacy's local day, not the browser's UTC day.
 function todayStr() {
-  return new Date().toISOString().slice(0, 10)
+  return todayBangkok()
 }
 function monthStartStr() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+  return todayStr().slice(0, 7) + '-01'
 }
 function daysAgoStr(n: number) {
-  const d = new Date()
-  d.setDate(d.getDate() - n + 1)
-  return d.toISOString().slice(0, 10)
+  // Preserve original semantics: daysAgoStr(7) = 7 calendar days incl. today
+  // → shift back by n-1.
+  return daysAgoBangkokStr(n - 1)
 }
 function lastMonthRange(): [string, string] {
-  const d = new Date()
-  const y = d.getMonth() === 0 ? d.getFullYear() - 1 : d.getFullYear()
-  const m = d.getMonth() === 0 ? 12 : d.getMonth()
-  const last = new Date(y, m, 0).getDate()
-  const mm = String(m).padStart(2, '0')
-  return [`${y}-${mm}-01`, `${y}-${mm}-${last}`]
+  return lastMonthRangeBangkok()
 }
 
 const PRESETS = [

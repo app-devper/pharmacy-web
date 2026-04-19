@@ -8,6 +8,7 @@ import type { POItemInput, POInput, POItem } from '../../types/import'
 import Button from '../ui/Button'
 import Spinner from '../ui/Spinner'
 import { genLotNumber } from '../../utils/lot'
+import { todayBangkok } from '../../utils/date'
 
 interface Props {
   existingId?: string   // set for edit mode
@@ -15,7 +16,8 @@ interface Props {
   onSaved: () => void
 }
 
-const today = new Date().toISOString().split('T')[0]
+// Lazy so sessions spanning midnight pick up the new Bangkok day on next use.
+const getToday = () => todayBangkok()
 
 function emptyRow(): POItemInput {
   return {
@@ -43,7 +45,7 @@ export default function ImportFormModal({ existingId, onClose, onSaved }: Props)
   const { drugs } = useDrugs()
 
   const [header, setHeader] = useState({
-    supplier: '', invoice_no: '', receive_date: today, notes: '',
+    supplier: '', invoice_no: '', receive_date: getToday(), notes: '',
   })
   const [rows, setRows] = useState<POItemInput[]>([emptyRow()])
   const [errors, setErrors] = useState<Set<number>>(new Set())
