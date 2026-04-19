@@ -26,17 +26,20 @@
 
 | หน้า | ความสามารถ |
 |------|------------|
-| **หน้าขายยา** | ค้นหาด้วยชื่อการค้า / ชื่อสามัญ / บาร์โค้ด · ตะกร้า · ออกใบเสร็จ · ตัดสต็อก FEFO อัตโนมัติ · เลือกลูกค้าผ่าน modal (แสดงเตือนแพ้ยา) · ส่วนลดระดับรายการ · ส่วนลดรวม (฿/%) · USB HID barcode scanner |
+| **หน้าขายยา** | ค้นหาด้วยชื่อการค้า / ชื่อสามัญ / บาร์โค้ด · **Multi-unit** (เม็ด / แผง / กล่อง) · **Multi-tier pricing** (หน้าร้าน / ประจำ / ขายส่ง / custom) · Tier auto-apply ตามลูกค้า · ตะกร้า · ออกใบเสร็จ · ตัดสต็อก FEFO อัตโนมัติ · เตือนแพ้ยา · ส่วนลดระดับรายการ · ส่วนลดรวม (฿/%) · USB HID barcode scanner (รองรับ alt-unit barcode) |
 | **พักบิล (Hold/Park)** | พัก 5 ช่อง · สลับตะกร้าขายคู่ขนาน · resume/swap/ยกเลิก · persist ใน localStorage |
 | **ประวัติการขาย** | กรองวันที่ · ค้นหาบิล/ลูกค้า · ยกเลิกบิล · **คืนยา** (คืนบางส่วน เชื่อมบิลเดิม · คืนสต็อก FEFO · บันทึกเหตุผล) |
-| **สต็อกยา** | เพิ่ม/แก้ไขยา · จัดการล็อต · ดูสถานะวันหมดอายุ · badge "ถัดไป" (FEFO) |
+| **สต็อกยา** | เพิ่ม/แก้ไขยา (inline alt-unit editor + tier price editor) · จัดการล็อต · ดูสถานะวันหมดอายุ · badge "ถัดไป" (FEFO) · click row → ประวัติปรับสต็อก |
 | **จัดการวันหมดอายุ** | กรอง 30/60/90/180 วัน + หมดอายุแล้ว · bulk write-off ตัดสต็อก · Export XLSX |
 | **นำเข้าสินค้า** | สร้างใบนำเข้า (IMP-YYMMDD-NNN) · บันทึกแบบร่าง · ยืนยันรับสินค้า |
-| **ลูกค้า** | บันทึกประวัติ · โรคประจำตัว · ยอดซื้อสะสม · ดูประวัติการซื้อ |
-| **รายงาน** | สรุปยอดขาย · กราฟรายวัน · **Top 10 ยาขายดี** · **ยาขายไม่ออก** · **กราฟรายได้ vs ต้นทุนรายเดือน** · Export XLSX/PDF |
-| **กำไร** | กำไรแยกตามยา · margin% · กรองช่วงวันที่ · Export XLSX |
+| **ลูกค้า** | บันทึกประวัติ · โรคประจำตัว / แพ้ยา · ประเภทลูกค้า (tier) · ยอดซื้อสะสม · ดูประวัติการซื้อ |
+| **รายงาน** | สรุปยอดขาย · กราฟรายวัน · **Top 10 ยาขายดี** · **ยาขายไม่ออก** · **กราฟรายได้ vs ต้นทุนรายเดือน** · **EOD** (ปิดยอดประจำวัน) · Export XLSX/PDF |
+| **กำไร** | กำไรแยกตามยา · margin% · กรองช่วงวันที่ / preset (วันนี้, สัปดาห์นี้, เดือนนี้, เดือนที่แล้ว) · Export XLSX |
 | **แบบฟอร์ม ขย.9–12** | บันทึกถาวร · Export PDF ฟอนต์ไทย ตามมาตรฐาน อย. |
+| **Movements** | log นำเข้า/ขาย/คืน/ปรับ/writeoff/void · กรองวันที่ + ประเภท + ชื่อยา · Export XLSX |
 | **แจ้งเตือนหมดอายุ** | bell icon · badge แดง (หมดอายุแล้ว) / ส้ม (ใกล้หมด) · ลิงก์ไปหน้าจัดการ |
+| **ตั้งค่า** | ข้อมูลร้าน · ใบเสร็จ (header/footer/paper 58/80) · Stock thresholds · เภสัชกร · ขย. toggle · **Timezone** (IANA, default Asia/Bangkok) · นำเข้าข้อมูล JSON |
+| **จัดการผู้ใช้งาน** | ADMIN-only · สร้าง/ลบ user · กำหนด role (SUPER/ADMIN/USER) ผ่าน Um-Api |
 | **Login** | เข้าสู่ระบบผ่าน Um-Api · แสดง role badge · ออกจากระบบ |
 
 ---
@@ -50,22 +53,24 @@ frontend/
     │   └── client.ts  # apiFetch wrapper + 401 redirect
     ├── components/
     │   ├── layout/    # Layout, Sidebar, Topbar
-    │   ├── sell/      # หน้าขาย
-    │   ├── stock/     # สต็อก
+    │   ├── sell/      # หน้าขาย + ตะกร้า + KY sale modal
+    │   ├── stock/     # สต็อก · AltUnitForm (inline) · PriceTiersEditor · TierPriceModal · LotListModal · ReorderSuggestions
     │   ├── imports/   # นำเข้า
     │   ├── customers/ # ลูกค้า
-    │   ├── report/    # รายงาน
+    │   ├── report/    # รายงาน + EOD modal + charts
     │   ├── kyforms/   # แบบฟอร์ม ขย.
     │   ├── suppliers/ # ซัพพลายเออร์
-    │   └── ui/        # Button, Modal, Badge, Spinner, ...
+    │   └── ui/        # Button, Modal, Badge, Spinner, DayPicker, …
     ├── context/
-    │   ├── AuthContext.tsx  # JWT auth (login/logout/keep-alive)
-    │   ├── AppContext.tsx   # Toast notifications
-    │   └── CartContext.tsx  # ตะกร้าสินค้า
-    ├── hooks/         # useDrugs, useToast, useBarcodeScanner, ...
-    ├── pages/         # SellPage, StockPage, ExpiryPage, SalesHistoryPage, ...
-    ├── types/         # TypeScript interfaces (drug, sale, lot, report, ...)
-    └── utils/         # formatters, exportXlsx, exportPdf, printReceipt
+    │   ├── AuthContext.tsx      # JWT auth (login/logout/keep-alive)
+    │   ├── AppContext.tsx       # Toast notifications
+    │   ├── CartContext.tsx      # ตะกร้า + park slots + tier ตาม customer
+    │   ├── DrugsContext.tsx     # shared drug cache + patchStocks
+    │   └── SettingsContext.tsx  # settings + auto setAppTimezone()
+    ├── hooks/         # useDrugs, useToast, useBarcodeScanner, useKeyboardShortcuts, useOnlineStatus, …
+    ├── pages/         # SellPage, StockPage, AddDrugPage, EditDrugPage, ExpiryPage, SalesHistoryPage, ReportPage, ProfitPage, MovementsPage, SettingsPage, UsersPage, Ky9-12Page, …
+    ├── types/         # TypeScript interfaces (drug, sale, lot, report, setting, customer, …)
+    └── utils/         # formatters, exportXlsx, exportPdf, printReceipt, date (Bangkok TZ), lot (gen lot number), pricing (resolvePrice/getTierLabel)
 ```
 
 ---
