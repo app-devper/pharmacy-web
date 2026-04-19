@@ -164,32 +164,36 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
       )}
 
       {/* Customer selector */}
-      <div className="px-4 pt-3 pb-2 border-b border-gray-100">
+      <div className="px-2 pt-2 pb-2 border-b border-gray-100">
         {!selectedCustomer ? (
           <button
             onClick={() => setShowPicker(true)}
             aria-label="เลือกลูกค้า"
-            className="w-full flex items-center gap-2 border border-dashed border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            className="w-full min-h-[36px] flex items-center gap-2 px-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
             <span aria-hidden="true">👤</span>
-            <span>เลือกลูกค้า</span>
+            <span className="flex-1 text-left">เลือกลูกค้า</span>
+            <span className="text-gray-400 text-base leading-none" aria-hidden="true">›</span>
           </button>
         ) : (
           <div>
-            <div className="w-full flex items-center gap-2 bg-blue-50 rounded-xl pl-3 pr-1 py-1 hover:bg-blue-100 transition-colors focus-within:ring-2 focus-within:ring-blue-400">
-              <span className="text-sm" aria-hidden="true">👤</span>
+            <div className="min-h-[36px] flex items-center gap-2 px-2">
+              <span aria-hidden="true">👤</span>
               <button
                 type="button"
                 onClick={() => setShowPicker(true)}
-                className="text-sm font-medium text-blue-800 flex-1 min-w-0 truncate text-left py-0.5 focus-visible:outline-none rounded"
+                className="flex-1 min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
               >
-                {selectedCustomer.name}
+                <div className="text-sm font-medium text-gray-800 truncate">{selectedCustomer.name}</div>
+                {selectedCustomer.phone && (
+                  <div className="text-[11px] text-gray-400 truncate">{selectedCustomer.phone}</div>
+                )}
               </button>
               <button
                 type="button"
                 aria-label="ลบลูกค้า"
                 onClick={() => setSelectedCustomer(null)}
-                className="text-blue-400 hover:text-blue-600 text-lg leading-none px-1.5 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+                className="text-gray-400 hover:text-red-500 text-lg leading-none px-1.5 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 rounded"
               >×</button>
             </div>
             {hasAllergy && (
