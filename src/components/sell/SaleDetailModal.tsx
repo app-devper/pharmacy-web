@@ -158,6 +158,22 @@ export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props)
                         <td className="py-2.5 px-5 text-gray-800 font-medium">
                           {item.drug_name}
                           {item.unit && <span className="ml-1 text-xs text-indigo-500">· {item.unit}</span>}
+                          {item.oversold_qty && item.oversold_qty > 0 && (
+                            <span
+                              className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold align-middle"
+                              title={`ขายล่วงหน้า ${item.oversold_qty} หน่วย · รอ import reconcile`}
+                            >
+                              ⏳ ขายล่วงหน้า {item.oversold_qty}
+                            </span>
+                          )}
+                          {item.lot_mismatch && (
+                            <span
+                              className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-semibold align-middle"
+                              title="lot ที่ตัดจริงต่างจากที่บันทึกตอนขาย (offline drift)"
+                            >
+                              ⚠ lot drift
+                            </span>
+                          )}
                         </td>
                         <td className="py-2.5 px-3 text-right text-gray-600">{displayQty}</td>
                         <td className="py-2.5 px-3 text-right text-gray-600" style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(displayPrice)}</td>

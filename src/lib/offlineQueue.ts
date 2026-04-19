@@ -5,8 +5,16 @@ export interface PendingSale {
   id: string
   data: SaleInput
   created_at: number
+  /** Last replay error — set by markSaleError, surfaced via useOfflineSync.failed. */
   error?: string
 }
+
+// Lot snapshot: when the drug list is loaded the backend attaches `next_lot`
+// per drug (earliest-expiring lot with remaining > 0). Cart checkout copies
+// that onto each SaleItemInput.lot_snapshot, and the backend compares against
+// whichever lot FEFO actually deducts — setting `lot_mismatch: true` on the
+// persisted SaleItem when they differ. Queued offline sales carry the
+// snapshot intact through IDB so the comparison still works after sync.
 
 const DB_NAME    = 'pharmacy-pos'
 const DB_VERSION = 1

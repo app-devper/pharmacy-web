@@ -71,7 +71,19 @@ export default function DrugTable({ drugs, onReload }: Props) {
                   <td className="py-3 px-3 text-right font-medium text-gray-800">
                     ฿{getDrugSellPrice(drug).toLocaleString()}
                   </td>
-                  <td className="py-3 px-3 text-right font-medium whitespace-nowrap">{drug.stock} {drug.unit}</td>
+                  <td
+                    className={`py-3 px-3 text-right font-medium whitespace-nowrap ${
+                      drug.stock < 0 ? 'text-red-600' : ''
+                    }`}
+                    title={drug.stock < 0 ? `ค้างส่ง ${-drug.stock} ${drug.unit} · จะ reconcile อัตโนมัติเมื่อ import ล็อตถัดไป` : undefined}
+                  >
+                    {drug.stock} {drug.unit}
+                    {drug.stock < 0 && (
+                      <span className="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-700 align-middle">
+                        ติดลบ · รอเข้าของ
+                      </span>
+                    )}
+                  </td>
                   <td className="py-3 px-3 whitespace-nowrap"><StockBadge stock={drug.stock} minStock={drug.min_stock} /></td>
                   <td className="py-3 px-3 text-gray-400 text-xs">{drug.barcode || '—'}</td>
                   <td className="py-3 px-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>

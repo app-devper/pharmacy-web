@@ -1,6 +1,19 @@
 import type { Drug, PriceTier } from './drug'
 import type { Customer } from './customer'
 
+export interface LotSnapshot {
+  lot_id: string
+  lot_number: string
+  expiry_date: string  // ISO
+}
+
+export interface LotDeduction {
+  lot_id: string
+  lot_number: string
+  expiry_date: string  // ISO
+  qty: number          // base units deducted from this lot
+}
+
 export interface SaleItemInput {
   drug_id: string
   qty: number                  // BASE units
@@ -10,6 +23,13 @@ export interface SaleItemInput {
   unit?: string                // alt-unit name; "" or omit = base unit
   unit_factor?: number         // 1 = base, >=2 = alt
   price_tier?: PriceTier       // "" default = retail
+  /** Client hint: which lot the cashier expected to be deducted. Lets the
+   *  backend flag offline-queued sales that drifted across FEFO. */
+  lot_snapshot?: LotSnapshot
+  /** Opt into "sell now, reconcile later" — the backend allows stock to go
+   *  negative for this line and records the shortfall as oversold_qty on
+   *  the SaleItem. Reconciled FIFO when future imports land. */
+  allow_oversell?: boolean
 }
 
 export interface SaleInput {
@@ -47,6 +67,15 @@ export interface SaleItem {
   unit?: string                // alt-unit display name; "" = base
   unit_factor?: number         // 1 = base, >=2 = alt
   price_tier?: PriceTier       // "" default = retail
+  /** FEFO audit trail — which lots actually got deducted for this line. */
+  lot_splits?: LotDeduction[]
+  /** Client's expected lot at checkout time. */
+  lot_snapshot?: LotSnapshot
+  /** True when the first deducted lot differs from lot_snapshot.lot_id. */
+  lot_mismatch?: boolean
+  /** Base units sold without a matching lot at sale time (AllowOversell).
+   *  Drops toward 0 as future imports reconcile. */
+  oversold_qty?: number
 }
 
 export interface StockUpdate {

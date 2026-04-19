@@ -49,13 +49,13 @@ export default function SellPage() {
       showToast(`ไม่พบยาบาร์โค้ด: ${barcode}`, 'error')
       return
     }
-    if (matchedDrug.stock === 0) {
-      showToast(`${matchedDrug.name} — หมดสต็อก`, 'error')
-      return
-    }
+    // Stock ≤ 0 is allowed — the cart will surface an oversell confirm at
+    // checkout. We still surface a quick toast so the cashier knows why
+    // things look sparse on the card.
     addToCart(matchedDrug, matchedAlt)
     const unitLabel = matchedAlt ? ` (${matchedAlt.name})` : ''
-    showToast(`เพิ่ม ${matchedDrug.name}${unitLabel}`, 'success')
+    const suffix = matchedDrug.stock <= 0 ? ' · ขายล่วงหน้า' : ''
+    showToast(`เพิ่ม ${matchedDrug.name}${unitLabel}${suffix}`, 'success')
     setLastScannedId(matchedDrug.id)
     clearTimeout(highlightTimer.current)
     highlightTimer.current = setTimeout(() => setLastScannedId(null), 800)
@@ -68,9 +68,12 @@ export default function SellPage() {
   return (
     <div className="flex flex-col h-full" style={{ height: 'calc(100svh - 57px)' }}>
       {!online && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-200 text-sm text-amber-800 shrink-0">
-          <span aria-hidden="true">⚠</span>
-          <span>ไม่มีอินเตอร์เน็ต — ใช้ข้อมูลสำรอง บิลจะซิงค์อัตโนมัติเมื่อกลับมาออนไลน์</span>
+        <div className="flex items-start gap-2 px-4 py-2 bg-amber-50 border-b border-amber-200 text-sm text-amber-800 shrink-0">
+          <span aria-hidden="true" className="shrink-0 mt-0.5">⚠</span>
+          <div className="leading-snug">
+            <div>ไม่มีอินเตอร์เน็ต — ใช้ข้อมูลสำรอง บิลจะซิงค์อัตโนมัติเมื่อกลับมาออนไลน์</div>
+            <div className="text-[11px] text-amber-700">สต็อก/ราคาอาจไม่เป็นปัจจุบัน · ตรวจยอดอีกครั้งเมื่อออนไลน์</div>
+          </div>
         </div>
       )}
       <div className="flex flex-1 overflow-hidden">

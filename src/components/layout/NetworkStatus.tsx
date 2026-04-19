@@ -5,13 +5,16 @@ import { useOfflineSync } from '../../hooks/useOfflineSync'
  * NetworkStatus — shown in the Topbar.
  *
  * States:
- *  • Online, nothing pending  → renders nothing (null)
+ *  • Online, queue empty      → renders nothing (null)
  *  • Offline                  → red pill "ออฟไลน์"
- *  • Online + pending sales   → amber pill "รอซิงค์ N รายการ" / "กำลังซิงค์..."
+ *  • Online + pending sync    → amber pill "รอซิงค์ N" / "กำลังซิงค์..."
+ *  • Failed sync (persistent) → red pill "ซิงค์ล้มเหลว N · กดเพื่อลอง" —
+ *    stays visible until the user clicks to retry or clears them manually.
+ *    Unlike the other states this is clickable to force a sync.
  */
 export default function NetworkStatus() {
-  const online             = useOnlineStatus()
-  const { pending, syncing } = useOfflineSync()
+  const online                           = useOnlineStatus()
+  const { pending, failed, syncing, sync } = useOfflineSync()
 
   // Fully normal — show nothing
   if (online && pending === 0) return null
@@ -25,6 +28,23 @@ export default function NetworkStatus() {
         <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
         ออฟไลน์
       </div>
+    )
+  }
+
+  // Back online but some queued sales failed to replay — show a persistent
+  // red pill that the user can click to retry. Takes priority over the plain
+  // amber "pending" state.
+  if (failed > 0 && !syncing) {
+    return (
+      <button
+        type="button"
+        onClick={() => sync()}
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-100 border border-red-200 text-red-700 text-xs font-medium select-none hover:bg-red-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+        title={`${failed} รายการซิงค์ไม่สำเร็จ — กดเพื่อลองส่งใหม่`}
+      >
+        <span aria-hidden="true">⚠</span>
+        ซิงค์ล้มเหลว {failed}
+      </button>
     )
   }
 

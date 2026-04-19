@@ -57,8 +57,9 @@ function cartReducer(state: CartItem[], action: CartAction): CartItem[] {
       const idx = state.findIndex(i => rowMatches(i, action.drug.id, unitName))
       if (idx >= 0) {
         const next = [...state]
-        const maxQty = action.drug.stock
-        next[idx] = { ...next[idx], qty: Math.min(next[idx].qty + step, maxQty) }
+        // No qty cap — oversell is allowed; the cart's checkout modal will
+        // make the cashier explicitly confirm any shortfall at submit time.
+        next[idx] = { ...next[idx], qty: next[idx].qty + step }
         return next
       }
       const newItem: CartItem = {
@@ -80,7 +81,9 @@ function cartReducer(state: CartItem[], action: CartAction): CartItem[] {
           // delta is in display units; multiply by factor to get base-unit delta
           const factor = i.selected_unit_factor ?? 1
           const baseDelta = action.delta * factor
-          return { ...i, qty: Math.min(i.qty + baseDelta, i.stock) }
+          // No upper cap — oversell is allowed. The oversell confirm modal
+          // surfaces at checkout if the cart crosses drug.stock.
+          return { ...i, qty: i.qty + baseDelta }
         })
         .filter(i => i.qty > 0)
     }

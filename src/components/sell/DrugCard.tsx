@@ -13,7 +13,11 @@ interface Props {
 
 export default function DrugCard({ drug, onAdd, highlighted }: Props) {
   const { priceTier } = useCart()
-  const oos = drug.stock === 0
+  // `oos` now means "stock is not positive" (0 or negative — the latter shows
+  // a drug that's been oversold and is waiting for an import to reconcile).
+  // The card is still clickable; the cashier will get an oversell-confirm
+  // modal at checkout that makes them explicitly opt in per bill.
+  const oos = drug.stock <= 0
   // Price displayed on the card + popover reflects the cart's current tier.
   const price = resolvePrice(getDrugSellPrice(drug), drug.prices, priceTier)
   // Only show alt units that are flagged visible (default = visible)
@@ -38,7 +42,6 @@ export default function DrugCard({ drug, onAdd, highlighted }: Props) {
   }
 
   const handleClick = () => {
-    if (oos) return
     if (hasAlts) { setMenuOpen(v => !v); return }
     onAdd(drug, null)
   }
@@ -47,10 +50,9 @@ export default function DrugCard({ drug, onAdd, highlighted }: Props) {
     <div ref={rootRef} className="relative">
       <button
         onClick={handleClick}
-        disabled={oos}
         className={`w-full bg-white rounded-xl border p-3 text-left transition-all ${
           oos
-            ? 'opacity-50 cursor-not-allowed border-gray-100'
+            ? 'border-amber-200 hover:border-amber-400 hover:shadow-md active:scale-95'
             : highlighted
               ? 'shadow-md border-green-400 ring-2 ring-green-300 scale-[1.02]'
               : 'hover:shadow-md hover:border-blue-300 active:scale-95 border-gray-200'
@@ -59,7 +61,7 @@ export default function DrugCard({ drug, onAdd, highlighted }: Props) {
         <div className="flex justify-between items-start gap-2 mb-0.5">
           <span className="text-sm font-medium text-gray-800 leading-tight">{drug.name}</span>
           {oos
-            ? <span className="text-xs text-red-500 shrink-0">หมด</span>
+            ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold shrink-0" title="ขายล่วงหน้า · รอ import">ขายล่วงหน้า</span>
             : hasAlts && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-semibold shrink-0" aria-label={`มี ${alts.length} หน่วย`}>+{alts.length}</span>
           }
         </div>
@@ -76,7 +78,7 @@ export default function DrugCard({ drug, onAdd, highlighted }: Props) {
         </div>
       </button>
 
-      {menuOpen && !oos && hasAlts && (
+      {menuOpen && hasAlts && (
         <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
           <div className="px-3 py-1.5 text-[10px] uppercase text-gray-400 bg-gray-50 border-b border-gray-100">เลือกหน่วยที่ขาย</div>
           {/* Base unit */}

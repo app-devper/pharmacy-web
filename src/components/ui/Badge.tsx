@@ -18,6 +18,8 @@ export function StockBadge({ stock, minStock }: StockBadgeProps) {
   const tenantThreshold = settings.stock.low_stock_threshold
   const fallback = tenantThreshold === undefined ? DEFAULT_LOW_STOCK_THRESHOLD : tenantThreshold
   const threshold = minStock && minStock > 0 ? minStock : fallback
+  if (stock < 0)
+    return <span className={`${badgeBase} bg-red-100 text-red-700`}>ค้างส่ง</span>
   if (stock === 0)
     return <span className={`${badgeBase} bg-red-100 text-red-700`}>หมด</span>
   if (threshold > 0 && stock <= threshold)

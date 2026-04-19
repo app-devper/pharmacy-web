@@ -41,7 +41,16 @@ export interface Drug {
   report_types: string[]
   alt_units?: AltUnit[]
   prices?: PriceTiers
+  /** Earliest-expiring lot with remaining > 0. Populated by backend on list. */
+  next_lot?: LotSummary
   created_at: string
+}
+
+/** Lightweight reference to a drug lot — returned on Drug list for FEFO hints. */
+export interface LotSummary {
+  lot_id: string
+  lot_number: string
+  expiry_date: string  // ISO
 }
 
 /** Resolve the sell price from either the new or legacy field name */
