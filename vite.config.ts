@@ -12,7 +12,8 @@ export default defineConfig({
       // Service Worker is only generated in production build
       devOptions: { enabled: false },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        // `md` is included so the user guide loads offline via /help.
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,md}'],
         runtimeCaching: [
           {
             // Cache drug list — NetworkFirst (fresh when online, fallback when offline)

@@ -16,6 +16,7 @@ const mainItems = [
   { to: '/profit',    icon: '💰', label: 'กำไร',                    adminOnly: true  },
   { to: '/users',     icon: '🔐', label: 'จัดการผู้ใช้งาน',          adminOnly: true  },
   { to: '/settings',  icon: '⚙️', label: 'ตั้งค่าระบบ',              adminOnly: true  },
+  { to: '/help',      icon: '📖', label: 'คู่มือการใช้งาน',           adminOnly: false },
 ]
 
 const kyItems = [

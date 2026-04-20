@@ -23,6 +23,7 @@ const pageTitles: Record<string, string> = {
   '/movements': 'ความเคลื่อนไหวสต็อก',
   '/profile':   'โปรไฟล์ของฉัน',
   '/settings':  'ตั้งค่าระบบ',
+  '/help':      'คู่มือการใช้งาน',
 }
 
 export default function Topbar() {

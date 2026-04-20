@@ -21,6 +21,7 @@ import ProfilePage from './pages/ProfilePage'
 import SettingsPage from './pages/SettingsPage'
 import AddDrugPage from './pages/AddDrugPage'
 import EditDrugPage from './pages/EditDrugPage'
+import HelpPage from './pages/HelpPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="users" element={<AdminRoute><UsersPage /></AdminRoute>} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+          <Route path="help" element={<HelpPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
