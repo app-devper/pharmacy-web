@@ -26,10 +26,10 @@
 
 | หน้า | ความสามารถ |
 |------|------------|
-| **หน้าขายยา** | ค้นหาด้วยชื่อการค้า / ชื่อสามัญ / บาร์โค้ด · **Multi-unit** (เม็ด / แผง / กล่อง) · **Multi-tier pricing** (หน้าร้าน / ประจำ / ขายส่ง / custom) · Tier auto-apply ตามลูกค้า · ตะกร้า · ออกใบเสร็จ · ตัดสต็อก FEFO อัตโนมัติ · เตือนแพ้ยา · ส่วนลดระดับรายการ · ส่วนลดรวม (฿/%) · USB HID barcode scanner (รองรับ alt-unit barcode) |
+| **หน้าขายยา** | ค้นหาด้วยชื่อการค้า / ชื่อสามัญ / บาร์โค้ด · **Multi-unit** (เม็ด / แผง / กล่อง) · **Multi-tier pricing** (หน้าร้าน / ประจำ / ขายส่ง / custom) · Tier auto-apply ตามลูกค้า · **Oversell** (ขายก่อน-ตัดสต็อกทีหลัง · confirm modal) · ตะกร้า · ออกใบเสร็จ · ตัดสต็อก FEFO อัตโนมัติ · เตือนแพ้ยา · ส่วนลดระดับรายการ · ส่วนลดรวม (฿/%) · USB HID barcode scanner (รองรับ alt-unit barcode) |
 | **พักบิล (Hold/Park)** | พัก 5 ช่อง · สลับตะกร้าขายคู่ขนาน · resume/swap/ยกเลิก · persist ใน localStorage |
-| **ประวัติการขาย** | กรองวันที่ · ค้นหาบิล/ลูกค้า · ยกเลิกบิล · **คืนยา** (คืนบางส่วน เชื่อมบิลเดิม · คืนสต็อก FEFO · บันทึกเหตุผล) |
-| **สต็อกยา** | เพิ่ม/แก้ไขยา (inline alt-unit editor + tier price editor) · จัดการล็อต · ดูสถานะวันหมดอายุ · badge "ถัดไป" (FEFO) · click row → ประวัติปรับสต็อก |
+| **ประวัติการขาย** | กรองวันที่ · ค้นหาบิล/ลูกค้า · ยกเลิกบิล · **คืนยา** (คืนบางส่วน เชื่อมบิลเดิม · คืนสต็อก FEFO · บันทึกเหตุผล) · SaleDetailModal แสดง badge "⏳ ขายล่วงหน้า N" (oversold) + "⚠ lot drift" (offline sync mismatch) |
+| **สต็อกยา** | เพิ่ม/แก้ไขยา (inline alt-unit editor + tier price editor) · จัดการล็อต · ดูสถานะวันหมดอายุ · badge "ถัดไป" (FEFO) · click row → ประวัติปรับสต็อก · negative stock แสดง badge "ติดลบ · รอเข้าของ" เมื่อมี oversell ค้าง |
 | **จัดการวันหมดอายุ** | กรอง 30/60/90/180 วัน + หมดอายุแล้ว · bulk write-off ตัดสต็อก · Export XLSX |
 | **นำเข้าสินค้า** | สร้างใบนำเข้า (IMP-YYMMDD-NNN) · บันทึกแบบร่าง · ยืนยันรับสินค้า |
 | **ลูกค้า** | บันทึกประวัติ · โรคประจำตัว / แพ้ยา · ประเภทลูกค้า (tier) · ยอดซื้อสะสม · ดูประวัติการซื้อ |
@@ -41,6 +41,7 @@
 | **ตั้งค่า** | ข้อมูลร้าน · ใบเสร็จ (header/footer/paper 58/80) · Stock thresholds · เภสัชกร · ขย. toggle · **Timezone** (IANA, default Asia/Bangkok) · นำเข้าข้อมูล JSON |
 | **จัดการผู้ใช้งาน** | ADMIN-only · สร้าง/ลบ user · กำหนด role (SUPER/ADMIN/USER) ผ่าน Um-Api |
 | **Login** | เข้าสู่ระบบผ่าน Um-Api · แสดง role badge · ออกจากระบบ |
+| **Offline mode** | PWA cache (NetworkFirst · drugs + customers 24h) · IndexedDB queue สำหรับ sales offline · Auto-sync on reconnect · Optimistic stock patch ตอน checkout offline · Persistent red pill เมื่อ sync failed · Lot snapshot carry ผ่าน queue เพื่อ audit ภายหลัง |
 
 ---
 
@@ -151,3 +152,44 @@ firebase target:apply hosting <TARGET_NAME> <SITE_ID>
 4. Keep-alive ทุก 10 นาที → refresh token ผ่าน Um-Api
 5. Logout → เรียก Um-Api → ลบ token → redirect `/login`
 6. ถ้า API ตอบ 401 → ลบ token + redirect `/login` อัตโนมัติ
+
+---
+
+## Oversell Workflow (ขายก่อน-ตัดสต็อกทีหลัง)
+
+| Step | UI / File | พฤติกรรม |
+|------|-----------|---------|
+| Add drug | `DrugCard.tsx` | stock ≤ 0 แสดง badge "ขายล่วงหน้า" สีส้ม แต่ยังคลิกเพิ่มได้ · Cart context ไม่ clamp qty |
+| Checkout | `Cart.tsx` | เปรียบเทียบ `need = qty` vs `drug.stock` ต่อ item · ถ้าเกิน → แสดง `OversellConfirmModal` |
+| Confirm | `OversellConfirmModal.tsx` | แสดง list ยาที่ขายเกิน + จำนวนที่ขาดสต็อก · checkbox ยืนยัน · Confirm → attach `allow_oversell: true` ต่อ line ที่เกี่ยว |
+| Submit | `api/sales.ts` → backend | Backend drop `$gte` guard · ตัด lot FEFO เท่าที่มี · เก็บ `oversold_qty` บน SaleItem · `drug.stock` ติดลบได้ |
+| Display | `DrugTable.tsx` · `StockBadge` · `SaleDetailModal.tsx` | Negative stock → ตัวเลขแดง + badge "ติดลบ · รอเข้าของ" · Sale item → badge "⏳ ขายล่วงหน้า N" |
+| Auto-reconcile | Backend `Import.Confirm` / `StockAdjustment.Create` | Import lot → drain FIFO sold_at ASC · append real `LotDeduction` · Stock adjust (+) → drain · append synthetic `{ADJUST:<reason>}` · ไม่แตะ frontend — shown via next drug reload |
+
+**Return rules** — คืนได้สูงสุด `Σ real LotSplits.qty − already_returned` (ไม่รวม synthetic adjustment-absorbed หรือ unreconciled) · `drug_returns.go` validate และ reject พร้อมข้อความ "มี N หน่วยยังไม่ผูกกับล็อตจริง"
+
+---
+
+## Offline Mode Architecture
+
+| Layer | ไฟล์ | หน้าที่ |
+|------|------|---------|
+| PWA config | `vite.config.ts` | `vite-plugin-pwa` · NetworkFirst 24h cache สำหรับ `/api/drugs`, `/api/customers` |
+| Online detection | `hooks/useOnlineStatus.ts` | `navigator.onLine` + event listener |
+| Queue | `lib/offlineQueue.ts` | IndexedDB (idb v8) · store `pending_sales` · `enqueueSale` / `getPendingSales` / `markSaleError` / `removePendingSale` |
+| Offline-aware API | `api/sales.ts` | `createSale` — offline → `enqueueSale` + return receipt ชั่วคราว `OFFLINE-xxx` · `_createSaleRaw` — direct (ใช้โดย sync loop) |
+| Auto-sync | `hooks/useOfflineSync.ts` | Watch online state → replay queue · นับ `pending` + `failed` · เรียก `reloadDrugs()` หลัง sync สำเร็จเพื่อ reconcile optimistic stock |
+| UI indicator | `components/layout/NetworkStatus.tsx` | Topbar pill: 🔴 ออฟไลน์ / 🟡 รอซิงค์ N / 🟠 กำลังซิงค์ / 🔴 ซิงค์ล้มเหลว N (click → retry) |
+| Stock patch | `components/sell/Cart.tsx` | Offline checkout → compute optimistic `stock_updates` จาก local cache → `patchStocks()` ทันที |
+| Lot snapshot | `types/sale.ts` → `SaleItemInput.lot_snapshot` | Cart แนบ `drug.next_lot` ต่อ item · backend `lot_mismatch` flag เมื่อ sync หลัง FEFO drift |
+
+**Flow:**
+1. Browser offline → DrugGrid ใช้ cache (NetworkFirst fallback) → cart ทำงานตามปกติ
+2. Checkout → `navigator.onLine === false` → enqueue ใน IDB + optimistic `patchStocks()` → cashier เห็นเหมือนขายสำเร็จปกติ
+3. Browser online → `useOfflineSync` auto-replay queue → success → remove from IDB · fail → `markSaleError` + persistent red pill
+4. หลัง sync สำเร็จ → `reloadDrugs()` → server authoritative stock override optimistic
+
+**รู้จัก limits:**
+- Queue หายถ้า user clear IDB / site data
+- Lot snapshot เก็บใน IDB ตาม SaleItemInput — carry through sync · backend compare actual FEFO vs snapshot → set `lot_mismatch`
+- หาก Multiple offline sales ของยาเดียวกัน · stock ท้องถิ่นลดจาก optimistic · sync ทีละอัน · stock sync หลังสุดจะ override
