@@ -54,12 +54,12 @@ export default function DrugGrid({ drugs, loading, onAdd, scannerActive, highlig
           </div>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto p-3 grid grid-cols-2 gap-2 content-start">
+      <div className="flex-1 overflow-y-auto p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 content-start">
         {filtered.map(d => (
           <DrugCard key={d.id} drug={d} onAdd={onAdd} highlighted={d.id === highlightedId} />
         ))}
         {filtered.length === 0 && (
-          <div className="col-span-2 text-center text-gray-400 py-8 text-sm">ไม่พบรายการ</div>
+          <div className="col-span-full text-center text-gray-400 py-8 text-sm">ไม่พบรายการ</div>
         )}
       </div>
     </div>

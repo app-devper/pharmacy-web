@@ -17,7 +17,7 @@ import AddCustomerModal from '../components/customers/AddCustomerModal'
 export default function SellPage() {
   const { drugs, loading, reload, patchStocks } = useDrugs()
   const { reload: reloadCustomers } = useCustomers()
-  const { addToCart, clearCart } = useCart()
+  const { addToCart, clearCart, items: cartItems } = useCart()
   const showToast = useToast()
   const online = useOnlineStatus()
   useKeyboardShortcuts({ onClearCart: clearCart })
@@ -25,6 +25,9 @@ export default function SellPage() {
   const [showAddCustomer, setShowAddCustomer] = useState(false)
   const [kyData, setKyData] = useState<CheckoutData | null>(null)
   const [lastScannedId, setLastScannedId] = useState<string | null>(null)
+  // Cart is a drawer on <md (mobile): FAB with item badge opens it; DrugGrid
+  // takes the full width underneath. ≥md keeps the original side-by-side.
+  const [cartOpen, setCartOpen] = useState(false)
   const highlightTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => () => { clearTimeout(highlightTimer.current) }, [])
 
@@ -76,20 +79,68 @@ export default function SellPage() {
           </div>
         </div>
       )}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         <DrugGrid
           drugs={drugs}
           loading={loading}
-          onAdd={(drug: Drug, altUnit?: AltUnit | null) => addToCart(drug, altUnit ?? null)}
+          onAdd={(drug: Drug, altUnit?: AltUnit | null) => {
+            addToCart(drug, altUnit ?? null)
+            // On mobile the cart is hidden — give the cashier a hint that
+            // the item landed by popping the drawer open automatically after
+            // the first add so they can see the current state.
+            if (window.matchMedia('(max-width: 767px)').matches && cartItems.length === 0) {
+              setCartOpen(true)
+            }
+          }}
           scannerActive
           highlightedId={lastScannedId}
         />
-        <Cart
-          onCheckoutDone={handleCheckoutDone}
-          onReloadDrugs={reload}
-          onAddCustomer={() => setShowAddCustomer(true)}
-          onKyRequired={setKyData}
-        />
+        {/* Desktop / tablet — cart is always visible as the right column */}
+        <div className="hidden md:block">
+          <Cart
+            onCheckoutDone={handleCheckoutDone}
+            onReloadDrugs={reload}
+            onAddCustomer={() => setShowAddCustomer(true)}
+            onKyRequired={setKyData}
+          />
+        </div>
+
+        {/* Mobile — cart is a right-side drawer toggled by a FAB */}
+        <div
+          className={`md:hidden fixed inset-0 z-30 transition-opacity ${
+            cartOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+          aria-hidden={!cartOpen}
+        >
+          <div className="absolute inset-0 bg-black/50" onClick={() => setCartOpen(false)} />
+          <div
+            className={`absolute top-0 bottom-0 right-0 transition-transform duration-200 ease-out ${
+              cartOpen ? 'translate-x-0' : 'translate-x-full'
+            }`}
+          >
+            <Cart
+              onCheckoutDone={(r, i, t) => { setCartOpen(false); handleCheckoutDone(r, i, t) }}
+              onReloadDrugs={reload}
+              onAddCustomer={() => setShowAddCustomer(true)}
+              onKyRequired={(d) => { setCartOpen(false); setKyData(d) }}
+            />
+          </div>
+        </div>
+        {/* FAB — mobile only, shows cart item count */}
+        {cartItems.length > 0 && !cartOpen && (
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
+            className="md:hidden fixed bottom-5 right-5 z-20 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-full shadow-lg px-5 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-400"
+            aria-label={`เปิดตะกร้า (${cartItems.length} รายการ)`}
+          >
+            <span aria-hidden="true">🛒</span>
+            <span>ตะกร้า</span>
+            <span className="bg-white text-blue-600 text-xs font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1.5">
+              {cartItems.length}
+            </span>
+          </button>
+        )}
       </div>
       {receipt && (
         <ReceiptModal

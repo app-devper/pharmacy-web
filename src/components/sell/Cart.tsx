@@ -238,8 +238,8 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
     selectedCustomer.disease !== '-' && selectedCustomer.disease !== ''
 
   return (
-    <div className="flex border-l border-gray-200">
-      <div className="w-72 bg-white flex flex-col">
+    <div className="flex h-full border-l border-gray-200">
+      <div className="w-[85vw] max-w-[22rem] md:w-72 bg-white flex flex-col">
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100">
         <h2 className="font-semibold text-gray-800">ตะกร้า</h2>
@@ -477,7 +477,11 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
         </button>
       </div>
       </div>
-      <ParkTabs />
+      {/* ParkTabs tucked to the right on md+; hidden on mobile to reclaim
+          drawer width — cashiers on phone use the cart drawer as single-focus. */}
+      <div className="hidden md:block">
+        <ParkTabs />
+      </div>
     </div>
   )
 }
