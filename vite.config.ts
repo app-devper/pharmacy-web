@@ -4,6 +4,30 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    // Split heavy third-party libs into their own chunks so the main app
+    // bundle stays under the 500 kB warning threshold AND the browser can
+    // cache vendor code across app deploys.
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('recharts'))                       return 'vendor-charts'
+          if (id.includes('xlsx'))                           return 'vendor-xlsx'
+          if (id.includes('react-markdown') ||
+              id.includes('remark') ||
+              id.includes('micromark') ||
+              id.includes('mdast'))                          return 'vendor-md'
+          if (id.includes('react-router'))                   return 'vendor-router'
+          if (id.includes('react-dom') ||
+              id.includes('scheduler') ||
+              id.includes('/react/'))                        return 'vendor-react'
+          return undefined
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
