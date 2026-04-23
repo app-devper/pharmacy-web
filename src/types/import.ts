@@ -27,7 +27,7 @@ export interface POInput {
   items: POItem[]
 }
 
-// Full document (returned by GET /api/imports/:id)
+// Full document (returned by GET /api/pharmacy/v1/imports/:id)
 export interface PurchaseOrder {
   id: string
   doc_no: string
@@ -43,7 +43,7 @@ export interface PurchaseOrder {
   confirmed_at: string | null
 }
 
-// Summary (returned by GET /api/imports — items excluded)
+// Summary (returned by GET /api/pharmacy/v1/imports — items excluded)
 export interface PurchaseOrderSummary {
   id: string
   doc_no: string

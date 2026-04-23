@@ -41,7 +41,7 @@ export default defineConfig({
         runtimeCaching: [
           {
             // Cache drug list — NetworkFirst (fresh when online, fallback when offline)
-            urlPattern: /^\/api\/drugs/,
+            urlPattern: /^\/api\/pharmacy\/v1\/drugs/,
             handler: 'NetworkFirst',
             options: {
               cacheName:  'api-drugs',
@@ -51,7 +51,7 @@ export default defineConfig({
           },
           {
             // Cache customer list
-            urlPattern: /^\/api\/customers/,
+            urlPattern: /^\/api\/pharmacy\/v1\/customers/,
             handler: 'NetworkFirst',
             options: {
               cacheName:  'api-customers',

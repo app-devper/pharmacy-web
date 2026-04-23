@@ -3,10 +3,10 @@ import type { Drug } from '../types/drug'
 import type { StockAdjustment, StockAdjustmentInput } from '../types/stockAdjustment'
 
 export const createAdjustment = (drugId: string, data: StockAdjustmentInput) =>
-  apiFetch<Drug>(`/api/drugs/${drugId}/adjustments`, {
+  apiFetch<Drug>(`/api/pharmacy/v1/drugs/${drugId}/adjustments`, {
     method: 'POST',
     body: JSON.stringify(data),
   })
 
 export const getAdjustments = (drugId: string) =>
-  apiFetch<StockAdjustment[]>(`/api/drugs/${drugId}/adjustments`)
+  apiFetch<StockAdjustment[]>(`/api/pharmacy/v1/drugs/${drugId}/adjustments`)

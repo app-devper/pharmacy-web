@@ -16,12 +16,12 @@ export function getSales(filter: SalesFilter = {}) {
   if (filter.to)     p.set('to',    filter.to)
   if (filter.q)      p.set('q',     filter.q)
   const qs = p.toString()
-  return apiFetch<Sale[]>(`/api/sales${qs ? `?${qs}` : ''}`)
+  return apiFetch<Sale[]>(`/api/pharmacy/v1/sales${qs ? `?${qs}` : ''}`)
 }
 
 /** Void (cancel) a sale — restores stock and reverses customer spend on the backend. */
 export const voidSale = (id: string, reason: string) =>
-  apiFetch<{ ok: boolean }>(`/api/sales/${id}/void`, {
+  apiFetch<{ ok: boolean }>(`/api/pharmacy/v1/sales/${id}/void`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
   })
@@ -31,11 +31,11 @@ export const voidSale = (id: string, reason: string) =>
  * Always hits the network; never queues.
  */
 export const _createSaleRaw = (data: SaleInput) =>
-  apiFetch<SaleResponse>('/api/sales', { method: 'POST', body: JSON.stringify(data) })
+  apiFetch<SaleResponse>('/api/pharmacy/v1/sales', { method: 'POST', body: JSON.stringify(data) })
 
 /**
  * Offline-aware createSale.
- * - Online  → POST /api/sales normally
+ * - Online  → POST /api/pharmacy/v1/sales normally
  * - Offline → enqueue in IndexedDB, return a temporary receipt
  */
 export async function createSale(data: SaleInput): Promise<SaleResponse> {
@@ -52,13 +52,13 @@ export async function createSale(data: SaleInput): Promise<SaleResponse> {
 }
 
 export const getSaleItems = (saleId: string) =>
-  apiFetch<SaleItem[]>(`/api/sales/${saleId}/items`)
+  apiFetch<SaleItem[]>(`/api/pharmacy/v1/sales/${saleId}/items`)
 
 export const createReturn = (saleId: string, data: DrugReturnInput) =>
-  apiFetch<DrugReturn>(`/api/sales/${saleId}/return`, {
+  apiFetch<DrugReturn>(`/api/pharmacy/v1/sales/${saleId}/return`, {
     method: 'POST',
     body: JSON.stringify(data),
   })
 
 export const getReturns = (saleId: string) =>
-  apiFetch<DrugReturn[]>(`/api/sales/${saleId}/returns`)
+  apiFetch<DrugReturn[]>(`/api/pharmacy/v1/sales/${saleId}/returns`)

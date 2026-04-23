@@ -18,5 +18,5 @@ export function getMovements(params: MovementsParams = {}): Promise<MovementsRes
   if (params.types)     q.set('types',     params.types)
   if (params.limit  != null) q.set('limit',  String(params.limit))
   if (params.offset != null) q.set('offset', String(params.offset))
-  return apiFetch<MovementsResponse>(`/api/movements?${q.toString()}`)
+  return apiFetch<MovementsResponse>(`/api/pharmacy/v1/movements?${q.toString()}`)
 }

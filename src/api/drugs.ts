@@ -6,16 +6,16 @@ import { Drug, DrugInput, DrugUpdate, DrugLot, DrugLotInput, ReorderSuggestion }
  * Backend also supports `?fields=compact` projection for other consumers that want
  * a slimmer payload (e.g. direct scripts), but the in-app cache needs full fields.
  */
-export const getDrugs = () => apiFetch<Drug[]>('/api/drugs')
+export const getDrugs = () => apiFetch<Drug[]>('/api/pharmacy/v1/drugs')
 
 export const getReorderSuggestions = (days = 30, lookahead = 14) =>
-  apiFetch<ReorderSuggestion[]>(`/api/drugs/reorder-suggestions?days=${days}&lookahead=${lookahead}`)
+  apiFetch<ReorderSuggestion[]>(`/api/pharmacy/v1/drugs/reorder-suggestions?days=${days}&lookahead=${lookahead}`)
 
 export const addDrug = (data: DrugInput) =>
-  apiFetch<Drug>('/api/drugs', { method: 'POST', body: JSON.stringify(data) })
+  apiFetch<Drug>('/api/pharmacy/v1/drugs', { method: 'POST', body: JSON.stringify(data) })
 
 export const updateDrug = (id: string, data: DrugUpdate) =>
-  apiFetch<{ ok: boolean }>(`/api/drugs/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+  apiFetch<{ ok: boolean }>(`/api/pharmacy/v1/drugs/${id}`, { method: 'PUT', body: JSON.stringify(data) })
 
 // Bulk import API
 export interface BulkImportRowError {
@@ -30,17 +30,17 @@ export interface BulkImportResult {
 }
 
 export const bulkImportDrugs = (drugs: DrugInput[]) =>
-  apiFetch<BulkImportResult>('/api/drugs/bulk', {
+  apiFetch<BulkImportResult>('/api/pharmacy/v1/drugs/bulk', {
     method: 'POST',
     body: JSON.stringify({ drugs }),
   })
 
 // Lot API
 export const getLots = (drugId: string) =>
-  apiFetch<DrugLot[]>(`/api/drugs/${drugId}/lots`)
+  apiFetch<DrugLot[]>(`/api/pharmacy/v1/drugs/${drugId}/lots`)
 
 export const addLot = (drugId: string, data: DrugLotInput) =>
-  apiFetch<DrugLot>(`/api/drugs/${drugId}/lots`, { method: 'POST', body: JSON.stringify(data) })
+  apiFetch<DrugLot>(`/api/pharmacy/v1/drugs/${drugId}/lots`, { method: 'POST', body: JSON.stringify(data) })
 
 export const deleteLot = (drugId: string, lotId: string) =>
-  apiFetch<{ ok: boolean }>(`/api/drugs/${drugId}/lots/${lotId}`, { method: 'DELETE' })
+  apiFetch<{ ok: boolean }>(`/api/pharmacy/v1/drugs/${drugId}/lots/${lotId}`, { method: 'DELETE' })
