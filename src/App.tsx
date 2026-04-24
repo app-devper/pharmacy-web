@@ -24,6 +24,7 @@ import EditDrugPage from './pages/EditDrugPage'
 import HelpPage from './pages/HelpPage'
 import StockCountPage from './pages/StockCountPage'
 import OfflineSyncPage from './pages/OfflineSyncPage'
+import LabelPrintPage from './pages/LabelPrintPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -60,6 +61,7 @@ export default function App() {
           <Route path="sales" element={<SalesHistoryPage />} />
           <Route path="stock" element={<StockPage />} />
           <Route path="stock-count" element={<AdminRoute><StockCountPage /></AdminRoute>} />
+          <Route path="labels" element={<AdminRoute><LabelPrintPage /></AdminRoute>} />
           <Route path="stock/new"       element={<AdminRoute><AddDrugPage /></AdminRoute>} />
           <Route path="stock/:id/edit"  element={<AdminRoute><EditDrugPage /></AdminRoute>} />
           <Route path="imports"   element={<AdminRoute><ImportPage /></AdminRoute>} />

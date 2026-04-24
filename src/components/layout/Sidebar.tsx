@@ -8,6 +8,7 @@ const mainItems = [
   { to: '/sales',     icon: '🧾', label: 'ประวัติการขาย',           adminOnly: false },
   { to: '/stock',     icon: '📦', label: 'สต็อกยา',                adminOnly: false },
   { to: '/stock-count', icon: '🧮', label: 'ตรวจนับสต็อก',          adminOnly: true  },
+  { to: '/labels',    icon: '🏷️', label: 'พิมพ์ฉลากบาร์โค้ด',       adminOnly: true  },
   { to: '/expiry',    icon: '⏰', label: 'จัดการวันหมดอายุ',        adminOnly: true  },
   { to: '/movements', icon: '📋', label: 'ความเคลื่อนไหวสต็อก',    adminOnly: false },
   { to: '/offline-sync', icon: '🔄', label: 'รายการค้างซิงค์',       adminOnly: false },
