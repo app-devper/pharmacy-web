@@ -22,6 +22,8 @@ import SettingsPage from './pages/SettingsPage'
 import AddDrugPage from './pages/AddDrugPage'
 import EditDrugPage from './pages/EditDrugPage'
 import HelpPage from './pages/HelpPage'
+import StockCountPage from './pages/StockCountPage'
+import OfflineSyncPage from './pages/OfflineSyncPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -57,6 +59,7 @@ export default function App() {
           <Route path="sell" element={<SellPage />} />
           <Route path="sales" element={<SalesHistoryPage />} />
           <Route path="stock" element={<StockPage />} />
+          <Route path="stock-count" element={<AdminRoute><StockCountPage /></AdminRoute>} />
           <Route path="stock/new"       element={<AdminRoute><AddDrugPage /></AdminRoute>} />
           <Route path="stock/:id/edit"  element={<AdminRoute><EditDrugPage /></AdminRoute>} />
           <Route path="imports"   element={<AdminRoute><ImportPage /></AdminRoute>} />
@@ -66,6 +69,7 @@ export default function App() {
           <Route path="profit"    element={<AdminRoute><ProfitPage /></AdminRoute>} />
           <Route path="expiry"    element={<AdminRoute><ExpiryPage /></AdminRoute>} />
           <Route path="movements" element={<MovementsPage />} />
+          <Route path="offline-sync" element={<OfflineSyncPage />} />
           <Route path="ky9"  element={<AdminRoute><Ky9Page /></AdminRoute>} />
           <Route path="ky10" element={<AdminRoute><Ky10Page /></AdminRoute>} />
           <Route path="ky11" element={<AdminRoute><Ky11Page /></AdminRoute>} />

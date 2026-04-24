@@ -61,6 +61,16 @@ export async function removePendingSale(id: string): Promise<void> {
   await db.delete(STORE, id)
 }
 
+export async function clearSaleError(id: string): Promise<void> {
+  const db = await getDb()
+  const item = await db.get(STORE, id)
+  if (item) {
+    const rest = { ...item }
+    delete rest.error
+    await db.put(STORE, rest)
+  }
+}
+
 export async function markSaleError(id: string, error: string): Promise<void> {
   const db = await getDb()
   const item = await db.get(STORE, id)
