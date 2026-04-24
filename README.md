@@ -30,6 +30,8 @@
 | **พักบิล (Hold/Park)** | พัก 5 ช่อง · สลับตะกร้าขายคู่ขนาน · resume/swap/ยกเลิก · persist ใน localStorage |
 | **ประวัติการขาย** | กรองวันที่ · ค้นหาบิล/ลูกค้า · ยกเลิกบิล · **คืนยา** (คืนบางส่วน เชื่อมบิลเดิม · คืนสต็อก FEFO · บันทึกเหตุผล) · SaleDetailModal แสดง badge "⏳ ขายล่วงหน้า N" (oversold) + "⚠ lot drift" (offline sync mismatch) |
 | **สต็อกยา** | เพิ่ม/แก้ไขยา (inline alt-unit editor + tier price editor) · จัดการล็อต · ดูสถานะวันหมดอายุ · badge "ถัดไป" (FEFO) · click row → ประวัติปรับสต็อก · negative stock แสดง badge "ติดลบ · รอเข้าของ" เมื่อมี oversell ค้าง |
+| **ตรวจนับสต็อก** | ADMIN-only · กรอกยอดนับจริงแบบ batch · ดูส่วนต่างเทียบระบบ · บันทึกรอบตรวจนับ `SC-YYMMDD-NNN` · backend สร้าง stock adjustment audit อัตโนมัติ |
+| **พิมพ์ฉลากบาร์โค้ด** | ADMIN-only · เลือกยา/ล็อต · กำหนดจำนวนดวงและขนาดฉลาก 38×25 หรือ 50×30 มม. · สร้าง Code 128 SVG และสั่งพิมพ์ผ่าน browser print |
 | **จัดการวันหมดอายุ** | กรอง 30/60/90/180 วัน + หมดอายุแล้ว · bulk write-off ตัดสต็อก · Export XLSX |
 | **นำเข้าสินค้า** | สร้างใบนำเข้า (IMP-YYMMDD-NNN) · บันทึกแบบร่าง · ยืนยันรับสินค้า |
 | **ลูกค้า** | บันทึกประวัติ · โรคประจำตัว / แพ้ยา · ประเภทลูกค้า (tier) · ยอดซื้อสะสม · ดูประวัติการซื้อ |
@@ -41,7 +43,7 @@
 | **ตั้งค่า** | ข้อมูลร้าน · ใบเสร็จ (header/footer/paper 58/80) · Stock thresholds · เภสัชกร · ขย. toggle · **Timezone** (IANA, default Asia/Bangkok) · นำเข้าข้อมูล JSON |
 | **จัดการผู้ใช้งาน** | ADMIN-only · สร้าง/ลบ user · กำหนด role (SUPER/ADMIN/USER) ผ่าน Um-Api |
 | **Login** | เข้าสู่ระบบผ่าน Um-Api · แสดง role badge · ออกจากระบบ |
-| **Offline mode** | PWA cache (NetworkFirst · drugs + customers 24h) · IndexedDB queue สำหรับ sales offline · Auto-sync on reconnect · Optimistic stock patch ตอน checkout offline · Persistent red pill เมื่อ sync failed · Lot snapshot carry ผ่าน queue เพื่อ audit ภายหลัง |
+| **Offline mode** | PWA cache (NetworkFirst · drugs + customers 24h) · IndexedDB queue สำหรับ sales offline · Auto-sync on reconnect · Optimistic stock patch ตอน checkout offline · Persistent red pill เมื่อ sync failed · หน้า `/offline-sync` สำหรับดู/retry/cancel รายการค้างซิงค์ · Lot snapshot carry ผ่าน queue เพื่อ audit ภายหลัง |
 
 ---
 
@@ -180,6 +182,7 @@ firebase target:apply hosting <TARGET_NAME> <SITE_ID>
 | Offline-aware API | `api/sales.ts` | `createSale` — offline → `enqueueSale` + return receipt ชั่วคราว `OFFLINE-xxx` · `_createSaleRaw` — direct (ใช้โดย sync loop) |
 | Auto-sync | `hooks/useOfflineSync.ts` | Watch online state → replay queue · นับ `pending` + `failed` · เรียก `reloadDrugs()` หลัง sync สำเร็จเพื่อ reconcile optimistic stock |
 | UI indicator | `components/layout/NetworkStatus.tsx` | Topbar pill: 🔴 ออฟไลน์ / 🟡 รอซิงค์ N / 🟠 กำลังซิงค์ / 🔴 ซิงค์ล้มเหลว N (click → retry) |
+| Conflict center | `pages/OfflineSyncPage.tsx` | หน้า `/offline-sync` แสดง queue ใน IndexedDB, error ล่าสุด, retry ทั้งหมด, cancel รายการที่ไม่ต้องการ sync |
 | Stock patch | `components/sell/Cart.tsx` | Offline checkout → compute optimistic `stock_updates` จาก local cache → `patchStocks()` ทันที |
 | Lot snapshot | `types/sale.ts` → `SaleItemInput.lot_snapshot` | Cart แนบ `drug.next_lot` ต่อ item · backend `lot_mismatch` flag เมื่อ sync หลัง FEFO drift |
 
