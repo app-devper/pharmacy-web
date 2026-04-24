@@ -23,6 +23,13 @@ const STORE      = 'pending_sales'
 // Singleton IDB connection
 let _db: Awaited<ReturnType<typeof openDB>> | null = null
 
+function makeOfflineId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `offline-${crypto.randomUUID()}`
+  }
+  return `offline-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 async function getDb() {
   if (_db) return _db
   _db = await openDB(DB_NAME, DB_VERSION, {
@@ -34,9 +41,13 @@ async function getDb() {
 }
 
 export async function enqueueSale(data: SaleInput): Promise<string> {
-  const id = `offline-${Date.now()}`
+  const id = data.client_request_id || makeOfflineId()
   const db = await getDb()
-  await db.put(STORE, { id, data, created_at: Date.now() } satisfies PendingSale)
+  await db.put(STORE, {
+    id,
+    data: { ...data, client_request_id: id },
+    created_at: Date.now(),
+  } satisfies PendingSale)
   return id
 }
 

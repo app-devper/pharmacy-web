@@ -25,7 +25,7 @@ export default function CustomersPage() {
     try { setCustomers(await getCustomers()) }
     catch (e: unknown) { showToast((e as Error).message, 'error') }
     finally { setLoading(false) }
-  }, [])
+  }, [showToast])
 
   useEffect(() => { load() }, [load])
 

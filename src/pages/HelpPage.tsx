@@ -20,7 +20,8 @@ function slugify(input: string): string {
     .toLowerCase()
     // Drop emoji / pictographs (most are in these ranges). Pure Latin/Thai
     // characters survive.
-    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F100}-\u{1F2FF}]/gu, '')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F100}-\u{1F2FF}]/gu, '')
+    .replace(/[\u{FE00}-\u{FE0F}]/gu, '')
     // Strip anything that's not a letter (any script), digit, hyphen, or space.
     .replace(/[^\p{L}\p{N}\s-]/gu, '')
     .replace(/\s+/g, '-')

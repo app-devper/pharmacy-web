@@ -21,7 +21,7 @@ export default function ImportDetailModal({ importId, onClose }: Props) {
       .then(setPo)
       .catch(e => showToast((e as Error).message, 'error'))
       .finally(() => setLoading(false))
-  }, [importId])
+  }, [importId, showToast])
 
   return (
     <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4">

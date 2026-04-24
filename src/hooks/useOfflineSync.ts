@@ -45,7 +45,10 @@ export function useOfflineSync() {
 
     for (const item of queue) {
       try {
-        await _createSaleRaw(item.data)   // direct API — bypass offline wrapper
+        await _createSaleRaw({
+          ...item.data,
+          client_request_id: item.data.client_request_id || item.id,
+        })   // direct API — bypass offline wrapper
         await removePendingSale(item.id)
         ok++
       } catch (e) {

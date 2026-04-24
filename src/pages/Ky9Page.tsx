@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { Ky9 } from '../types/kyforms'
 import { getKy9 } from '../api/kyforms'
 import { useToast } from '../hooks/useToast'
@@ -29,14 +29,14 @@ export default function Ky9Page() {
   const [showAdd, setShowAdd] = useState(false)
   const showToast = useToast()
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     try { setEntries(await getKy9(month)) }
     catch (e: unknown) { showToast((e as Error).message, 'error') }
     finally { setLoading(false) }
-  }
+  }, [month, showToast])
 
-  useEffect(() => { load() }, [month])
+  useEffect(() => { load() }, [load])
 
   const totalValue = entries.reduce((s, e) => s + e.total_value, 0)
 

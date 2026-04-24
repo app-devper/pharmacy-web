@@ -35,7 +35,7 @@ export default function LotListModal({ drug, onClose, onReload }: Props) {
     try { setLots(await getLots(drug.id)) }
     catch (e: unknown) { showToast((e as Error).message, 'error') }
     finally { setLoading(false) }
-  }, [drug.id])
+  }, [drug.id, showToast])
 
   useEffect(() => { loadLots() }, [loadLots])
 

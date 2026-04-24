@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { Sale } from '../types/sale'
 import { getSales } from '../api/sales'
 import { useToast } from '../hooks/useToast'
@@ -19,7 +19,7 @@ export default function SalesHistoryPage() {
   const showToast = useToast()
   const { reload: reloadDrugs } = useDrugs()
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
       const data = await getSales({ from, to, q: q.trim() || undefined, limit: 500 })
@@ -29,10 +29,10 @@ export default function SalesHistoryPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [from, to, q, showToast])
 
   // Load on mount with today's date
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
 
   const totalSales = sales.filter(s => !s.voided).reduce((sum, s) => sum + s.total, 0)
   const voidedCount = sales.filter(s => s.voided).length

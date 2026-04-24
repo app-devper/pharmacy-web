@@ -77,7 +77,7 @@ export default function ImportFormModal({ existingId, onClose, onSaved }: Props)
       showToast((e as Error).message, 'error')
       setLoadingEdit(false)
     })
-  }, [existingId])
+  }, [existingId, showToast])
 
   const setHeaderField = (k: string, v: string) => setHeader(h => ({ ...h, [k]: v }))
 

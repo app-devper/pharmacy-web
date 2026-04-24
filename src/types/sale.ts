@@ -33,6 +33,7 @@ export interface SaleItemInput {
 }
 
 export interface SaleInput {
+  client_request_id?: string
   customer_id?: string
   items: SaleItemInput[]
   discount?: number

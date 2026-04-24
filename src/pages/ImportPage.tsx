@@ -28,7 +28,7 @@ export default function ImportPage() {
       .then(setOrders)
       .catch(e => showToast((e as Error).message, 'error'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [showToast])
 
   useEffect(() => { reload() }, [reload])
 

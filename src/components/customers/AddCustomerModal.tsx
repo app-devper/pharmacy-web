@@ -34,8 +34,8 @@ export default function AddCustomerModal({ onClose, onSaved }: Props) {
       })
       showToast('เพิ่มลูกค้าสำเร็จ')
       onSaved()
-    } catch (e: any) {
-      showToast(e.message, 'error')
+    } catch (e: unknown) {
+      showToast((e as Error).message, 'error')
     } finally {
       setLoading(false)
     }

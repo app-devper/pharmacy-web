@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import type { ReportSummary, DailyData, MonthlyData } from '../types/report'
 import type { Sale } from '../types/sale'
 import { getDashboard, getDaily } from '../api/report'
@@ -48,16 +48,16 @@ export default function ReportPage() {
   }, [])
 
   // Days selector only reloads the daily chart (summary+monthly+recent don't depend on days)
-  const isFirstDays = useMemo(() => ({ v: true }), [])
+  const isFirstDays = useRef(true)
   useEffect(() => {
     // Skip the first fire: initial dashboard call already populated `daily` for the default days.
-    if (isFirstDays.v) { isFirstDays.v = false; return }
+    if (isFirstDays.current) { isFirstDays.current = false; return }
     let mounted = true
     getDaily(days)
       .then(d => { if (mounted) setDaily(d) })
       .catch((e: unknown) => { if (mounted) showToast((e as Error).message, 'error') })
     return () => { mounted = false }
-  }, [days, showToast, isFirstDays])
+  }, [days, showToast])
 
   const currentMonthProfit = useMemo(() => {
     const thisMonth = monthBangkok()

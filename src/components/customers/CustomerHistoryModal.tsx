@@ -31,7 +31,7 @@ export default function CustomerHistoryModal({ customer, onClose }: Props) {
       .then(setSales)
       .catch(e => showToast((e as Error).message, 'error'))
       .finally(() => setLoading(false))
-  }, [customer.id])
+  }, [customer.id, showToast])
 
   const hasAllergy = customer.disease && customer.disease !== '-' && customer.disease !== ''
 

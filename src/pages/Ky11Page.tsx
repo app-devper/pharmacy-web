@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { Ky11 } from '../types/kyforms'
 import { getKy11, addKy11 } from '../api/kyforms'
 import { useToast } from '../hooks/useToast'
@@ -39,14 +39,14 @@ export default function Ky11Page() {
   const [saving, setSaving] = useState(false)
   const showToast = useToast()
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     try { setEntries(await getKy11(month)) }
     catch (e: unknown) { showToast((e as Error).message, 'error') }
     finally { setLoading(false) }
-  }
+  }, [month, showToast])
 
-  useEffect(() => { load() }, [month])
+  useEffect(() => { load() }, [load])
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
