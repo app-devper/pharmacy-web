@@ -26,7 +26,7 @@ export default function Layout() {
   }, [pathname])
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-svh overflow-hidden">
       {/* Desktop sidebar — always visible on ≥lg */}
       <div className="hidden lg:block shrink-0">
         <Sidebar />

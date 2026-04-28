@@ -59,7 +59,6 @@ export default function ParkTabs() {
         const hasItems = isActive ? items.length > 0 : snap !== null
         const displayItems  = isActive ? items       : (snap?.items ?? [])
         const displayTotal  = isActive ? total       : slotTotal(snap?.items ?? [])
-        const displayCust   = isActive ? selectedCustomer : snap?.customer
 
         // Tooltip content for filled inactive tabs
         const tooltip = hasItems && !isActive && snap
@@ -105,13 +104,6 @@ export default function ParkTabs() {
             {isActive && hasItems && (
               <span className="mt-1 text-[10px] text-indigo-400 font-medium leading-none">
                 {slotQty(displayItems)}
-              </span>
-            )}
-
-            {/* Customer initial badge (active, has customer) */}
-            {isActive && displayCust && (
-              <span className="mt-1 text-[9px] text-indigo-300 leading-none max-w-[36px] truncate">
-                {displayCust.name.slice(0, 4)}
               </span>
             )}
 

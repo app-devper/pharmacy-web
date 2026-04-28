@@ -477,11 +477,9 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
         </button>
       </div>
       </div>
-      {/* ParkTabs tucked to the right on md+; hidden on mobile to reclaim
-          drawer width — cashiers on phone use the cart drawer as single-focus. */}
-      <div className="hidden md:block">
-        <ParkTabs />
-      </div>
+      {/* ParkTabs tucked to the right at every breakpoint — parked-cart
+          switcher is a core workflow that should be reachable on phone too. */}
+      <ParkTabs />
     </div>
   )
 }

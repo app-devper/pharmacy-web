@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useDrugs } from '../hooks/useDrugs'
 import { useToast } from '../hooks/useToast'
 import { createStockCount, getStockCounts } from '../api/stockCounts'
@@ -33,6 +34,21 @@ export default function StockCountPage() {
       d.barcode.includes(q)
     )
   }, [drugs, search])
+
+  // Virtualize table rows — only render what the user can see. Row heights
+  // are uniform (~52px) so measureElement+estimateSize give accurate offsets
+  // even for thousands of drugs. Padding rows keep scrollbar accurate.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const rowVirtualizer = useVirtualizer({
+    count: filteredDrugs.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 52,
+    overscan: 10,
+  })
+  const virtualItems = rowVirtualizer.getVirtualItems()
+  const totalSize = rowVirtualizer.getTotalSize()
+  const paddingTop    = virtualItems.length > 0 ? virtualItems[0].start : 0
+  const paddingBottom = virtualItems.length > 0 ? totalSize - virtualItems[virtualItems.length - 1].end : 0
 
   const draftItems = useMemo(() => {
     return drugs.flatMap(drug => {
@@ -112,9 +128,9 @@ export default function StockCountPage() {
         </Button>
       </div>
 
-      <div className="p-6 grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4 overflow-auto">
-        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex flex-wrap gap-3 items-end">
+      <div className="p-6 grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4 flex-1 min-h-0 overflow-auto xl:overflow-hidden">
+        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col min-h-0">
+          <div className="p-4 border-b border-gray-100 flex flex-wrap gap-3 items-end shrink-0">
             <div className="flex-1 min-w-64">
               <label className="block text-xs font-medium text-gray-500 mb-1">ค้นหายา</label>
               <input
@@ -135,10 +151,10 @@ export default function StockCountPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
+              <thead className="bg-gray-50 sticky top-0 z-10">
+                <tr className="border-b border-gray-100">
                   <th className="text-left px-4 py-2 font-semibold text-gray-500">ยา</th>
                   <th className="text-right px-4 py-2 font-semibold text-gray-500">ในระบบ</th>
                   <th className="text-right px-4 py-2 font-semibold text-gray-500">นับได้</th>
@@ -146,12 +162,21 @@ export default function StockCountPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredDrugs.map(drug => {
+                {paddingTop > 0 && (
+                  <tr aria-hidden="true"><td colSpan={4} style={{ height: paddingTop, padding: 0, border: 0 }} /></tr>
+                )}
+                {virtualItems.map(v => {
+                  const drug = filteredDrugs[v.index]
                   const raw = countInputs[drug.id] ?? ''
                   const counted = raw === '' ? null : Number(raw)
                   const delta = counted == null || !Number.isFinite(counted) ? 0 : counted - drug.stock
                   return (
-                    <tr key={drug.id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <tr
+                      key={drug.id}
+                      ref={rowVirtualizer.measureElement}
+                      data-index={v.index}
+                      className="border-b border-gray-50 hover:bg-gray-50"
+                    >
                       <td className="px-4 py-2">
                         <div className="font-medium text-gray-800">{drug.name}</div>
                         <div className="text-xs text-gray-400">{drug.generic_name || '—'} · {drug.unit}</div>
@@ -174,12 +199,20 @@ export default function StockCountPage() {
                     </tr>
                   )
                 })}
+                {paddingBottom > 0 && (
+                  <tr aria-hidden="true"><td colSpan={4} style={{ height: paddingBottom, padding: 0, border: 0 }} /></tr>
+                )}
+                {filteredDrugs.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-gray-400 text-sm">ไม่พบรายการ</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
-        <aside className="space-y-4">
+        <aside className="space-y-4 min-h-0 xl:overflow-y-auto">
           <div className="bg-white border border-gray-100 rounded-xl p-4">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">สรุปร่าง</h2>
             <div className="grid grid-cols-3 gap-2 text-center">

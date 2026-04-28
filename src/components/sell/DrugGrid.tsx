@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Drug, AltUnit, DRUG_TYPES } from '../../types/drug'
 import DrugCard from './DrugCard'
 import Spinner from '../ui/Spinner'
@@ -11,9 +12,21 @@ interface Props {
   highlightedId?: string | null
 }
 
+// Column count keyed off the scroll container's actual width (not viewport).
+// Matches the prior Tailwind breakpoints closely: 2 / 3 / 4 cols as the
+// available space grows, but responds to cart open/close without re-rendering.
+function colsForWidth(w: number): number {
+  if (w < 500)  return 2
+  if (w < 900)  return 3
+  return 4
+}
+
 export default function DrugGrid({ drugs, loading, onAdd, scannerActive, highlightedId }: Props) {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [cols, setCols] = useState(3)
+
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -26,11 +39,38 @@ export default function DrugGrid({ drugs, loading, onAdd, scannerActive, highlig
     })
   }, [drugs, search, typeFilter])
 
+  // Track container width to pick a column count that stays in sync with
+  // layout changes (cart drawer toggles, window resize, sidebar collapse).
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const update = (w: number) => {
+      const next = colsForWidth(w)
+      setCols(prev => (prev === next ? prev : next))
+    }
+    update(el.clientWidth)
+    const ro = new ResizeObserver(entries => update(entries[0].contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const rowCount = Math.ceil(filtered.length / cols)
+
+  // Virtualize rows of cards. Each virtual row lays out `cols` DrugCard
+  // instances via CSS grid; only rows within the viewport (+ overscan) are
+  // actually rendered. Handles thousands of drugs without lag.
+  const rowVirtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 132,  // DrugCard ~120-140px depending on name wrap + alt badge
+    overscan: 3,
+  })
+
   if (loading) return <div className="flex-1"><Spinner /></div>
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="flex gap-2 p-3 border-b border-gray-100 bg-white">
+      <div className="flex gap-2 p-3 border-b border-gray-100 bg-white shrink-0">
         <input
           type="text"
           placeholder="ค้นหายา... (F1)"
@@ -54,12 +94,43 @@ export default function DrugGrid({ drugs, loading, onAdd, scannerActive, highlig
           </div>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 content-start">
-        {filtered.map(d => (
-          <DrugCard key={d.id} drug={d} onAdd={onAdd} highlighted={d.id === highlightedId} />
-        ))}
-        {filtered.length === 0 && (
-          <div className="col-span-full text-center text-gray-400 py-8 text-sm">ไม่พบรายการ</div>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        {filtered.length === 0 ? (
+          <div className="text-center text-gray-400 py-8 text-sm">ไม่พบรายการ</div>
+        ) : (
+          <div
+            className="relative w-full"
+            style={{ height: rowVirtualizer.getTotalSize() }}
+          >
+            {rowVirtualizer.getVirtualItems().map(vRow => {
+              const startIdx = vRow.index * cols
+              return (
+                <div
+                  key={vRow.index}
+                  data-index={vRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  className="absolute top-0 left-0 right-0 grid gap-2 px-3 py-1"
+                  style={{
+                    transform: `translateY(${vRow.start}px)`,
+                    gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                  }}
+                >
+                  {Array.from({ length: cols }).map((_, ci) => {
+                    const drug = filtered[startIdx + ci]
+                    if (!drug) return <div key={ci} />
+                    return (
+                      <DrugCard
+                        key={drug.id}
+                        drug={drug}
+                        onAdd={onAdd}
+                        highlighted={drug.id === highlightedId}
+                      />
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
     </div>

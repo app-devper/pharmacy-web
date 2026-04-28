@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import type { Drug } from '../../types/drug'
 import { getDrugSellPrice } from '../../types/drug'
 import { StockBadge, TypeBadge, KyBadges } from '../ui/Badge'
@@ -22,6 +23,24 @@ export default function DrugTable({ drugs, onReload }: Props) {
   const [adjustDrug, setAdjustDrug] = useState<Drug | null>(null)
   const [logDrug, setLogDrug]       = useState<Drug | null>(null)
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Virtualize table rows — only render rows visible in the scroll viewport
+  // (+ overscan). Handles thousands of drugs smoothly. Row heights are
+  // measured dynamically because rows with reg_no or negative-stock badges
+  // are taller than plain rows.
+  const virtualizer = useVirtualizer({
+    count: drugs.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 56,
+    overscan: 10,
+  })
+
+  const virtualItems = virtualizer.getVirtualItems()
+  const totalSize = virtualizer.getTotalSize()
+  const paddingTop    = virtualItems.length > 0 ? virtualItems[0].start : 0
+  const paddingBottom = virtualItems.length > 0 ? totalSize - virtualItems[virtualItems.length - 1].end : 0
+
   const handleAdjusted = (updated: Drug) => {
     // Sync shared cache so SellPage (and anywhere else using useDrugs) reflects
     // the new stock immediately — no need for localOverrides anymore.
@@ -32,9 +51,9 @@ export default function DrugTable({ drugs, onReload }: Props) {
 
   return (
     <>
-      <div className="overflow-x-auto">
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto">
         <table className="w-full text-sm">
-          <thead>
+          <thead className="bg-gray-50 sticky top-0 z-10">
             <tr className="border-b border-gray-100">
               <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase">ชื่อยา</th>
               <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase">ชื่อสามัญ</th>
@@ -50,10 +69,16 @@ export default function DrugTable({ drugs, onReload }: Props) {
             </tr>
           </thead>
           <tbody>
-            {drugs.map(drug => {
+            {paddingTop > 0 && (
+              <tr aria-hidden="true"><td colSpan={11} style={{ height: paddingTop, padding: 0, border: 0 }} /></tr>
+            )}
+            {virtualItems.map(v => {
+              const drug = drugs[v.index]
               return (
                 <tr
                   key={drug.id}
+                  ref={virtualizer.measureElement}
+                  data-index={v.index}
                   onClick={() => setLogDrug(drug)}
                   className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer"
                 >
@@ -113,6 +138,9 @@ export default function DrugTable({ drugs, onReload }: Props) {
                 </tr>
               )
             })}
+            {paddingBottom > 0 && (
+              <tr aria-hidden="true"><td colSpan={11} style={{ height: paddingBottom, padding: 0, border: 0 }} /></tr>
+            )}
             {drugs.length === 0 && (
               <tr>
                 <td colSpan={11} className="py-8 text-center text-gray-400 text-sm">ไม่พบรายการ</td>

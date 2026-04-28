@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { getLots } from '../api/drugs'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
@@ -37,16 +38,26 @@ export default function LabelPrintPage() {
   const [lotsByDrug, setLotsByDrug] = useState<Record<string, DrugLot[]>>({})
 
   const drugsById = useMemo(() => new Map(drugs.map(drug => [drug.id, drug])), [drugs])
+  const listRef = useRef<HTMLDivElement>(null)
 
   const filteredDrugs = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return drugs.slice(0, 80)
+    if (!q) return drugs
     return drugs.filter(drug =>
       drug.name.toLowerCase().includes(q) ||
       drug.generic_name.toLowerCase().includes(q) ||
       drug.barcode.includes(q)
-    ).slice(0, 80)
+    )
   }, [drugs, search])
+
+  // Virtualize the drug-picker list — only render rows inside the viewport
+  // (+ overscan). Handles thousands of drugs without sluggish initial render.
+  const rowVirtualizer = useVirtualizer({
+    count: filteredDrugs.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => 64,    // matches px-4 py-3 + 2 lines of text
+    overscan: 8,
+  })
 
   useEffect(() => {
     const ids = Array.from(new Set(lines.map(line => line.drugId).filter(Boolean)))
@@ -135,9 +146,9 @@ export default function LabelPrintPage() {
         </Button>
       </div>
 
-      <div className="p-6 grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4 overflow-auto">
-        <aside className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-gray-100">
+      <div className="p-6 grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4 flex-1 min-h-0 overflow-auto xl:overflow-hidden">
+        <aside className="bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col min-h-0">
+          <div className="p-4 border-b border-gray-100 shrink-0">
             <label className="block text-xs font-medium text-gray-500 mb-1">ค้นหายา</label>
             <input
               value={search}
@@ -146,30 +157,41 @@ export default function LabelPrintPage() {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
             />
           </div>
-          <div className="max-h-[calc(100vh-220px)] overflow-auto divide-y divide-gray-50">
-            {filteredDrugs.map(drug => (
-              <button
-                key={drug.id}
-                onClick={() => addDrugLine(drug)}
-                className="w-full text-left px-4 py-3 hover:bg-gray-50"
-              >
-                <div className="font-medium text-gray-800">{drug.name}</div>
-                <div className="text-xs text-gray-400">
-                  {drug.barcode || 'ไม่มีบาร์โค้ด'} · ฿{getDrugSellPrice(drug).toLocaleString()} · stock {drug.stock}
-                </div>
-              </button>
-            ))}
+          <div ref={listRef} className="flex-1 min-h-0 overflow-auto">
+            <div
+              className="relative w-full"
+              style={{ height: rowVirtualizer.getTotalSize() }}
+            >
+              {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                const drug = filteredDrugs[virtualRow.index]
+                return (
+                  <button
+                    key={drug.id}
+                    onClick={() => addDrugLine(drug)}
+                    ref={rowVirtualizer.measureElement}
+                    data-index={virtualRow.index}
+                    className="absolute top-0 left-0 w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50"
+                    style={{ transform: `translateY(${virtualRow.start}px)` }}
+                  >
+                    <div className="font-medium text-gray-800">{drug.name}</div>
+                    <div className="text-xs text-gray-400">
+                      {drug.barcode || 'ไม่มีบาร์โค้ด'} · ฿{getDrugSellPrice(drug).toLocaleString()} · stock {drug.stock}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </aside>
 
-        <main className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center">
+        <main className="bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col min-h-0">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center shrink-0">
             <h2 className="text-sm font-semibold text-gray-700">รายการฉลาก</h2>
             <div className="flex-1" />
             <Button variant="secondary" onClick={() => setLines(prev => [...prev, newLine()])}>เพิ่มแถวว่าง</Button>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="flex-1 min-h-0 overflow-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>

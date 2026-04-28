@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",
+    "@tanstack/react-virtual": "^3.13.24",
     "idb": "^8.0.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

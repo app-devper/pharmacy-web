@@ -45,13 +45,13 @@ export default function Sidebar() {
   const shopName = settings.store.name || 'ร้านยา'
 
   return (
-    <aside className="w-56 bg-slate-800 text-white flex flex-col min-h-screen shrink-0">
+    <aside className="w-56 bg-slate-800 text-white flex flex-col h-full shrink-0">
       <div className="px-4 py-5 border-b border-slate-700">
         <div className="text-base font-bold text-white truncate">{shopName}</div>
         <div className="text-xs text-slate-400 mt-0.5">ระบบ POS ร้านขายยา</div>
       </div>
 
-      <nav className="flex-1 py-3">
+      <nav className="flex-1 py-3 overflow-y-auto">
         {/* Main nav items */}
         {visibleItems.map(item => (
           <NavLink

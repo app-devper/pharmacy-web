@@ -35,10 +35,12 @@ export default function StockPage() {
   }, [drugs, search, typeFilter])
 
   return (
-    <div className="p-6">
-      <StockMetrics drugs={drugs} />
-      <div className="bg-white rounded-xl border border-gray-100">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+    <div className="p-6 flex flex-col h-full overflow-hidden">
+      <div className="shrink-0">
+        <StockMetrics drugs={drugs} />
+      </div>
+      <div className="bg-white rounded-xl border border-gray-100 flex-1 min-h-0 flex flex-col overflow-hidden mt-4">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 shrink-0">
           <input
             type="text"
             placeholder="ค้นหายา…"
@@ -73,7 +75,7 @@ export default function StockPage() {
           )}
         </div>
         {!loading && (
-          <div className="px-4 py-2 border-b border-gray-50 text-xs text-gray-500">
+          <div className="px-4 py-2 border-b border-gray-50 text-xs text-gray-500 shrink-0">
             {search || typeFilter
               ? <>พบ <span className="font-semibold text-gray-700">{filtered.length.toLocaleString()}</span> รายการ จากทั้งหมด {drugs.length.toLocaleString()}</>
               : <>ทั้งหมด <span className="font-semibold text-gray-700">{drugs.length.toLocaleString()}</span> รายการ</>
