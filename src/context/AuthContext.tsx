@@ -50,6 +50,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setToken(null)
     localStorage.removeItem('token')
+    // Scrub user-scoped client storage so a different cashier signing in
+    // on the same browser (POS device shared across shifts, or a forgotten
+    // logout-then-login on a workstation) doesn't inherit the previous
+    // user's WIP + customer references.
+    //
+    // Kept intentionally:
+    //   - 'pharmacy:prefs' — per-browser UI preferences (theme/fontSize),
+    //     not tied to any specific user account.
+    //   - IDB 'pharmacy-pos' offline sale queue — those sales MUST sync
+    //     to the server; the backend dedupes on client_request_id so the
+    //     next user signing in can complete them. The pending list itself
+    //     is not customer-PII (just frozen prices + drug ids + numeric
+    //     qty) and the topbar makes it visible.
+    //   - Workbox runtime caches ('api-drugs' / 'api-customers' from
+    //     vite-plugin-pwa) — NetworkFirst strategy hits the network when
+    //     online; offline-only fallback to cached values is acceptable
+    //     UX for a multi-shift device.
+    localStorage.removeItem('pharmacy.parkedCarts')
   }, [])
 
   const fetchUserInfo = useCallback(async (tk: string) => {
