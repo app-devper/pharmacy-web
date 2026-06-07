@@ -81,3 +81,18 @@ export async function pendingCount(): Promise<number> {
   const db = await getDb()
   return db.count(STORE)
 }
+
+/**
+ * Drop every queued sale from IDB. Intended for "discard everything" flows
+ * — explicit user-initiated cache wipe, automated tenant-switch cleanup,
+ * etc. NOT called on routine logout, because queued sales that have not
+ * yet hit the server must still sync (the backend dedupes on
+ * client_request_id so the next user logging in can complete them).
+ *
+ * Callers that need to clear pending sales as part of a logout flow
+ * should do so explicitly and warn the user first.
+ */
+export async function clearPendingSales(): Promise<void> {
+  const db = await getDb()
+  await db.clear(STORE)
+}
