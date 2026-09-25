@@ -1,25 +1,28 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
+import { useAuth } from '../../context/AuthContext'
+import { hasRole, type Role } from '../../lib/roles'
 import { useSettings } from '../../context/SettingsContext'
 
-const mainItems = [
-  { to: '/sell',      icon: '🛒', label: 'หน้าขายยา',              adminOnly: false },
-  { to: '/sales',     icon: '🧾', label: 'ประวัติการขาย',           adminOnly: false },
-  { to: '/stock',     icon: '📦', label: 'สต็อกยา',                adminOnly: false },
-  { to: '/stock-count', icon: '🧮', label: 'ตรวจนับสต็อก',          adminOnly: true  },
-  { to: '/labels',    icon: '🏷️', label: 'พิมพ์ฉลากบาร์โค้ด',       adminOnly: true  },
-  { to: '/expiry',    icon: '⏰', label: 'จัดการวันหมดอายุ',        adminOnly: true  },
-  { to: '/movements', icon: '📋', label: 'ความเคลื่อนไหวสต็อก',    adminOnly: false },
-  { to: '/offline-sync', icon: '🔄', label: 'รายการค้างซิงค์',       adminOnly: false },
-  { to: '/imports',   icon: '📥', label: 'นำเข้าสินค้า',            adminOnly: true  },
-  { to: '/suppliers', icon: '🏭', label: 'ซัพพลายเออร์',            adminOnly: true  },
-  { to: '/customers', icon: '👥', label: 'ลูกค้า',                  adminOnly: false },
-  { to: '/report',    icon: '📊', label: 'รายงาน',                  adminOnly: false },
-  { to: '/profit',    icon: '💰', label: 'กำไร',                    adminOnly: true  },
-  { to: '/users',     icon: '🔐', label: 'จัดการผู้ใช้งาน',          adminOnly: true  },
-  { to: '/settings',  icon: '⚙️', label: 'ตั้งค่าระบบ',              adminOnly: true  },
-  { to: '/help',      icon: '📖', label: 'คู่มือการใช้งาน',           adminOnly: false },
+// minRole mirrors the route guards in App.tsx and pharmacy-api's permissions.
+const mainItems: { to: string; icon: string; label: string; minRole: Role }[] = [
+  { to: '/sell',      icon: '🛒', label: 'หน้าขายยา',              minRole: 'USER'    },
+  { to: '/sales',     icon: '🧾', label: 'ประวัติการขาย',           minRole: 'USER'    },
+  { to: '/stock',     icon: '📦', label: 'สต็อกยา',                minRole: 'USER'    },
+  { to: '/stock-count', icon: '🧮', label: 'ตรวจนับสต็อก',          minRole: 'MANAGER' },
+  { to: '/labels',    icon: '🏷️', label: 'พิมพ์ฉลากบาร์โค้ด',       minRole: 'MANAGER' },
+  { to: '/expiry',    icon: '⏰', label: 'จัดการวันหมดอายุ',        minRole: 'MANAGER' },
+  { to: '/movements', icon: '📋', label: 'ความเคลื่อนไหวสต็อก',    minRole: 'USER'    },
+  { to: '/offline-sync', icon: '🔄', label: 'รายการค้างซิงค์',       minRole: 'USER'    },
+  { to: '/imports',   icon: '📥', label: 'นำเข้าสินค้า',            minRole: 'MANAGER' },
+  { to: '/suppliers', icon: '🏭', label: 'ซัพพลายเออร์',            minRole: 'MANAGER' },
+  { to: '/customers', icon: '👥', label: 'ลูกค้า',                  minRole: 'USER'    },
+  { to: '/report',    icon: '📊', label: 'รายงาน',                  minRole: 'MANAGER' },
+  { to: '/profit',    icon: '💰', label: 'กำไร',                    minRole: 'ADMIN'   },
+  { to: '/users',     icon: '🔐', label: 'จัดการผู้ใช้งาน',          minRole: 'ADMIN'   },
+  { to: '/settings',  icon: '⚙️', label: 'ตั้งค่าระบบ',              minRole: 'ADMIN'   },
+  { to: '/help',      icon: '📖', label: 'คู่มือการใช้งาน',           minRole: 'USER'    },
 ]
 
 const kyItems = [
@@ -37,11 +40,12 @@ const linkClass = (isActive: boolean) =>
 export default function Sidebar() {
   const location = useLocation()
   const isAdmin = useIsAdmin()
+  const { user } = useAuth()
   const { settings } = useSettings()
   const kyActive = kyItems.some(k => location.pathname.startsWith(k.to))
   const [kyOpen, setKyOpen] = useState(kyActive)
 
-  const visibleItems = mainItems.filter(item => !item.adminOnly || isAdmin)
+  const visibleItems = mainItems.filter(item => hasRole(user?.role, item.minRole))
   const shopName = settings.store.name || 'ร้านยา'
 
   return (

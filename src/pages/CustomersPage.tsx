@@ -7,7 +7,7 @@ import EditCustomerModal from '../components/customers/EditCustomerModal'
 import CustomerHistoryModal from '../components/customers/CustomerHistoryModal'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
-import { useIsAdmin } from '../hooks/useIsAdmin'
+import { useIsManager } from '../hooks/useIsAdmin'
 
 export default function CustomersPage() {
   const showToast = useToast()
@@ -15,7 +15,7 @@ export default function CustomersPage() {
   const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
 
-  const isAdmin = useIsAdmin()
+  const canEdit = useIsManager()
   const [showAdd, setShowAdd]               = useState(false)
   const [editCustomer, setEditCustomer]     = useState<Customer | null>(null)
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null)
@@ -111,7 +111,7 @@ export default function CustomersPage() {
                           onClick={() => setHistoryCustomer(c)}
                           className="px-2.5 py-1 text-xs rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
                         >ประวัติ</button>
-                        {isAdmin && (
+                        {canEdit && (
                           <button
                             onClick={() => setEditCustomer(c)}
                             className="px-2.5 py-1 text-xs rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"

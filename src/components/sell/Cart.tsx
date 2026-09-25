@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useCart } from '../../context/CartContext'
-import { createSale } from '../../api/sales'
+import { createSale, isQueuedReceipt } from '../../api/sales'
 import { useDrugs } from '../../hooks/useDrugs'
 import { useSettings } from '../../context/SettingsContext'
 import { useToast } from '../../hooks/useToast'
@@ -201,13 +201,14 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
       setReceived('')
       // Stock reconciliation:
       //   • Online → server returns `stock_updates` (authoritative).
-      //   • Offline → no server response; apply optimistic patches so the UI
+      //   • Queued (offline, or the server could not confirm the session) →
+      //     no server response; apply optimistic patches so the UI
       //     reflects the sale immediately. Real values get reconciled when
       //     the queue syncs (useOfflineSync → onReloadDrugs there, or the
       //     user returns to the page).
       if (result.stock_updates && result.stock_updates.length > 0) {
         patchStocks(result.stock_updates)
-      } else if (!navigator.onLine) {
+      } else if (isQueuedReceipt(result)) {
         patchStocks(offlinePatches)
       } else {
         onReloadDrugs()

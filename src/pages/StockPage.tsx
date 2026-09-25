@@ -9,11 +9,12 @@ import ReorderSuggestionsModal from '../components/stock/ReorderSuggestionsModal
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import { exportStockXlsx } from '../utils/exportXlsx'
-import { useIsAdmin } from '../hooks/useIsAdmin'
+import { useIsAdmin, useIsManager } from '../hooks/useIsAdmin'
 
 export default function StockPage() {
   const navigate = useNavigate()
   const isAdmin = useIsAdmin()
+  const isManager = useIsManager()
   // Shared drug cache (DrugsContext). Switching between Sell/Stock no longer refetches.
   const { drugs, loading, reload } = useDrugs()
   const [showImport, setShowImport] = useState(false)
@@ -66,12 +67,14 @@ export default function StockPage() {
                 className="border-purple-300 text-purple-700 hover:bg-purple-50">
                 นำเข้า Excel
               </Button>
-              <Button variant="secondary" onClick={() => setShowReorder(true)}
-                className="border-indigo-300 text-indigo-700 hover:bg-indigo-50">
-                🔄 แนะนำสั่งซื้อ
-              </Button>
               <Button onClick={() => navigate('/stock/new')}>+ เพิ่มยา</Button>
             </>
+          )}
+          {isManager && (
+            <Button variant="secondary" onClick={() => setShowReorder(true)}
+              className="border-indigo-300 text-indigo-700 hover:bg-indigo-50">
+              🔄 แนะนำสั่งซื้อ
+            </Button>
           )}
         </div>
         {!loading && (
