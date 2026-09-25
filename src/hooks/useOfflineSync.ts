@@ -8,33 +8,7 @@ import {
   markSaleError,
 } from '../lib/offlineQueue'
 import { _createSaleRaw } from '../api/sales'
-
-/**
- * `looksLikeNetworkError` — best-effort detection that the catch
- * block caught a network failure (dropped wifi, captive portal,
- * server unreachable) rather than a sale-specific 4xx/5xx the
- * backend deliberately returned.
- *
- * Browser fetch surfaces these as `TypeError("Failed to fetch")` in
- * Chromium/Edge, `TypeError("NetworkError when attempting to fetch
- * resource")` in Firefox, and similar in Safari. apiFetch() re-throws
- * the TypeError verbatim.
- *
- * Whenever this is true we abort the sync loop instead of marking
- * every remaining sale as failed — the connection is broken, none of
- * them ever reached the server, and stamping `.error` on each one
- * would (a) burn IDB writes, (b) make the UI scream "9 ซิงค์ไม่สำเร็จ"
- * when really only one network blip happened, and (c) trigger a
- * second round of replay attempts the moment the user manually
- * presses Retry.
- */
-function looksLikeNetworkError(e: unknown): boolean {
-  if (!(e instanceof Error)) return false
-  if (e.name === 'TypeError') return true
-  return /failed to fetch|network|connection (refused|reset)|unreachable|offline/i.test(
-    e.message,
-  )
-}
+import { IdentityUnavailableError, isTemporaryOutage } from '../api/client'
 
 /**
  * useOfflineSync
@@ -52,9 +26,10 @@ function looksLikeNetworkError(e: unknown): boolean {
  *   - On success → removePendingSale + `ok++`
  *   - On a sale-specific failure (4xx/5xx, validation error) →
  *     markSaleError + `fail++` and continue to the next sale
- *   - On a network failure → break the loop entirely; tell the user
- *     once that the network blipped, and leave the remaining sales
- *     untouched so they're picked up on the next sync()
+ *   - On a temporary outage (network failure, or the server cannot
+ *     confirm the session) → break the loop entirely; tell the user once,
+ *     and leave the remaining sales untouched so they're picked up on the
+ *     next sync()
  */
 export function useOfflineSync() {
   const online    = useOnlineStatus()
@@ -80,7 +55,7 @@ export function useOfflineSync() {
     setSyncing(true)
     let ok = 0
     let fail = 0
-    let aborted = false
+    let aborted: 'network' | 'identity' | null = null
 
     for (const item of queue) {
       try {
@@ -91,12 +66,12 @@ export function useOfflineSync() {
         await removePendingSale(item.id)
         ok++
       } catch (e) {
-        if (looksLikeNetworkError(e)) {
-          // Connection is down — none of the remaining sales reached
-          // the server. Stop hammering the dead network; the next
-          // sync() (auto-fired by the online effect when connectivity
-          // returns, or manual) will retry from where we left off.
-          aborted = true
+        if (isTemporaryOutage(e)) {
+          // Connection is down, or the server can't confirm the session
+          // right now — none of the remaining sales will get through.
+          // Stop; the next sync() (auto-fired when connectivity returns,
+          // or manual) retries from where we left off.
+          aborted = e instanceof IdentityUnavailableError ? 'identity' : 'network'
           break
         }
         await markSaleError(item.id, (e as Error).message)
@@ -113,7 +88,8 @@ export function useOfflineSync() {
 
     if (ok)   showToast(`ซิงค์สำเร็จ ${ok} รายการ`, 'success')
     if (fail) showToast(`ซิงค์ไม่สำเร็จ ${fail} รายการ — ตรวจสอบรายการที่ค้างซิงค์`, 'error')
-    if (aborted) showToast('เครือข่ายขัดข้อง — ระบบจะลองซิงค์อีกครั้งเมื่อกลับมาออนไลน์', 'info')
+    if (aborted === 'network') showToast('เครือข่ายขัดข้อง — ระบบจะลองซิงค์อีกครั้งเมื่อกลับมาออนไลน์', 'info')
+    if (aborted === 'identity') showToast('ยืนยันตัวตนไม่ได้ชั่วคราว — รายการยังค้างซิงค์ กรุณากดซิงค์อีกครั้งภายหลัง', 'info')
   }, [refresh, reloadDrugs, showToast])
 
   // Auto-sync as soon as we come back online
