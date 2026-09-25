@@ -1,4 +1,4 @@
-import { apiFetch } from './client'
+import { apiFetch, IdentityUnavailableError } from './client'
 import { Sale, SaleItem, SaleInput, SaleResponse, DrugReturn, DrugReturnInput } from '../types/sale'
 import { enqueueSale } from '../lib/offlineQueue'
 
@@ -33,18 +33,34 @@ export const voidSale = (id: string, reason: string) =>
 export const _createSaleRaw = (data: SaleInput) =>
   apiFetch<SaleResponse>('/api/pharmacy/v1/sales', { method: 'POST', body: JSON.stringify(data) })
 
+const OFFLINE_BILL_PREFIX = 'OFFLINE-'
+
 /**
  * Offline-aware createSale.
  * - Online  → POST /api/pharmacy/v1/sales normally
  * - Offline → enqueue in IndexedDB, return a temporary receipt
+ * - Online but the server cannot confirm the session (503, ADR-0016) →
+ *   the server rejected the request before recording anything, so queue it
+ *   like an offline sale; useOfflineSync replays it later.
  */
 export async function createSale(data: SaleInput): Promise<SaleResponse> {
-  if (navigator.onLine) return _createSaleRaw(data)
+  if (!navigator.onLine) return queueSale(data)
+  try {
+    return await _createSaleRaw(data)
+  } catch (e) {
+    if (e instanceof IdentityUnavailableError) return queueSale(data)
+    throw e
+  }
+}
 
+/** True when createSale queued the sale instead of confirming it with the server. */
+export const isQueuedReceipt = (r: SaleResponse) => r.bill_no.startsWith(OFFLINE_BILL_PREFIX)
+
+async function queueSale(data: SaleInput): Promise<SaleResponse> {
   const id    = await enqueueSale(data)
   const total = data.items.reduce((s, i) => s + i.price * i.qty, 0) - (data.discount ?? 0)
   return {
-    bill_no:  `OFFLINE-${id.slice(-8)}`,
+    bill_no:  `${OFFLINE_BILL_PREFIX}${id.slice(-8)}`,
     total:    Math.max(0, total),
     discount: data.discount ?? 0,
     change:   Math.max(0, data.received - Math.max(0, total)),
