@@ -18,8 +18,24 @@ import { monthBangkok } from '../utils/date'
 
 const DAY_OPTIONS = [7, 14, 30]
 
+/**
+ * Financial and customer reports are ADMIN+; MANAGER sees only the
+ * operational slow-drugs view (shared role policy, KMP ADR-0004).
+ */
 export default function ReportPage() {
   const isAdmin = useIsAdmin()
+  return isAdmin ? <AdminReport /> : <ManagerReport />
+}
+
+function ManagerReport() {
+  return (
+    <div className="p-6">
+      <SlowDrugsTable />
+    </div>
+  )
+}
+
+function AdminReport() {
   const [summary, setSummary]   = useState<ReportSummary | null>(null)
   const [daily, setDaily]       = useState<DailyData[]>([])
   const [monthly, setMonthly]   = useState<MonthlyData[]>([])
@@ -69,7 +85,7 @@ export default function ReportPage() {
   return (
     <div className="p-6">
       <div className="flex justify-end mb-4">
-        {isAdmin && <Button onClick={() => setShowEod(true)}>ปิดรอบ</Button>}
+        <Button onClick={() => setShowEod(true)}>ปิดรอบ</Button>
       </div>
 
       {summary && <ReportMetrics summary={summary} monthProfit={currentMonthProfit} />}
