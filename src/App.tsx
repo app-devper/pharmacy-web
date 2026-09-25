@@ -25,6 +25,7 @@ import HelpPage from './pages/HelpPage'
 import StockCountPage from './pages/StockCountPage'
 import OfflineSyncPage from './pages/OfflineSyncPage'
 import LabelPrintPage from './pages/LabelPrintPage'
+import { hasRole, type Role } from './lib/roles'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -42,13 +43,18 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function AdminRoute({ children }: { children: React.ReactNode }) {
+function RoleRoute({ min, children }: { min: Role; children: React.ReactNode }) {
   const { user, loading } = useAuth()
   if (loading) return null
-  if (!user || !['ADMIN', 'SUPER'].includes(user.role))
+  if (!user || !hasRole(user.role, min))
     return <Navigate to="/sell" replace />
   return <>{children}</>
 }
+
+const AdminRoute = ({ children }: { children: React.ReactNode }) =>
+  <RoleRoute min="ADMIN">{children}</RoleRoute>
+const ManagerRoute = ({ children }: { children: React.ReactNode }) =>
+  <RoleRoute min="MANAGER">{children}</RoleRoute>
 
 export default function App() {
   return (
@@ -60,16 +66,16 @@ export default function App() {
           <Route path="sell" element={<SellPage />} />
           <Route path="sales" element={<SalesHistoryPage />} />
           <Route path="stock" element={<StockPage />} />
-          <Route path="stock-count" element={<AdminRoute><StockCountPage /></AdminRoute>} />
-          <Route path="labels" element={<AdminRoute><LabelPrintPage /></AdminRoute>} />
+          <Route path="stock-count" element={<ManagerRoute><StockCountPage /></ManagerRoute>} />
+          <Route path="labels" element={<ManagerRoute><LabelPrintPage /></ManagerRoute>} />
           <Route path="stock/new"       element={<AdminRoute><AddDrugPage /></AdminRoute>} />
           <Route path="stock/:id/edit"  element={<AdminRoute><EditDrugPage /></AdminRoute>} />
-          <Route path="imports"   element={<AdminRoute><ImportPage /></AdminRoute>} />
-          <Route path="suppliers" element={<AdminRoute><SuppliersPage /></AdminRoute>} />
+          <Route path="imports"   element={<ManagerRoute><ImportPage /></ManagerRoute>} />
+          <Route path="suppliers" element={<ManagerRoute><SuppliersPage /></ManagerRoute>} />
           <Route path="customers" element={<CustomersPage />} />
-          <Route path="report"    element={<ReportPage />} />
+          <Route path="report"    element={<ManagerRoute><ReportPage /></ManagerRoute>} />
           <Route path="profit"    element={<AdminRoute><ProfitPage /></AdminRoute>} />
-          <Route path="expiry"    element={<AdminRoute><ExpiryPage /></AdminRoute>} />
+          <Route path="expiry"    element={<ManagerRoute><ExpiryPage /></ManagerRoute>} />
           <Route path="movements" element={<MovementsPage />} />
           <Route path="offline-sync" element={<OfflineSyncPage />} />
           <Route path="ky9"  element={<AdminRoute><Ky9Page /></AdminRoute>} />
