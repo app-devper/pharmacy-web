@@ -3,6 +3,9 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useDrugs } from '../hooks/useDrugs'
 import { useToast } from '../hooks/useToast'
 import { createStockCount, getStockCounts } from '../api/stockCounts'
+import LotPicker from '../components/stock/LotPicker'
+import Modal from '../components/ui/Modal'
+import type { LotTarget } from '../types/stockAdjustment'
 import type { StockCount } from '../types/stockCount'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
@@ -84,9 +87,24 @@ export default function StockCountPage() {
     setNote('')
   }
 
+  // Counts above system stock need a lot for lot-tracked drugs (ADR-0007):
+  // saving first asks for those lots, then submits.
+  const increases = draftItems.filter(item => item.delta > 0)
+  const [lotStep, setLotStep] = useState(false)
+  const [lotChoices, setLotChoices] = useState<Record<string, { target: LotTarget | null; needed: boolean }>>({})
+  const lotsReady = increases.every(item => {
+    const c = lotChoices[item.drug.id]
+    return c !== undefined && (!c.needed || c.target !== null)
+  })
+
   const handleSave = async () => {
     if (draftItems.length === 0) {
       showToast('กรุณากรอกจำนวนที่นับได้อย่างน้อย 1 รายการ', 'error')
+      return
+    }
+    if (increases.length > 0 && !lotStep) {
+      setLotChoices({})
+      setLotStep(true)
       return
     }
     if (!window.confirm(`ยืนยันบันทึกรอบตรวจนับ ${draftItems.length} รายการ?`)) return
@@ -98,8 +116,10 @@ export default function StockCountPage() {
         items: draftItems.map(item => ({
           drug_id: item.drug.id,
           counted: item.counted,
+          lot: item.delta > 0 ? lotChoices[item.drug.id]?.target ?? undefined : undefined,
         })),
       })
+      setLotStep(false)
       showToast(`บันทึก ${saved.count_no} สำเร็จ`, 'success')
       setCounts(prev => [saved, ...prev].slice(0, 20))
       clearDraft()
@@ -258,6 +278,31 @@ export default function StockCountPage() {
           </div>
         </aside>
       </div>
+
+      {lotStep && (
+        <Modal title="เลือกล็อตสำหรับยาที่นับได้เพิ่ม" onClose={() => setLotStep(false)}>
+          <div className="space-y-4">
+            <p className="text-xs text-gray-500">ยาที่นับได้มากกว่าในระบบต้องระบุว่าจำนวนที่เพิ่มอยู่ล็อตไหน</p>
+            {increases.map(item => (
+              <div key={item.drug.id} className="space-y-1">
+                <div className="text-sm font-medium text-gray-800">
+                  {item.drug.name} <span className="text-green-700">+{item.delta} {item.drug.unit}</span>
+                </div>
+                <LotPicker
+                  drugId={item.drug.id}
+                  onChange={(target, needed) => setLotChoices(prev => ({ ...prev, [item.drug.id]: { target, needed } }))}
+                />
+              </div>
+            ))}
+            <div className="flex gap-2 pt-1">
+              <Button variant="secondary" className="flex-1" onClick={() => setLotStep(false)}>ยกเลิก</Button>
+              <Button className="flex-1" onClick={handleSave} disabled={!lotsReady || saving}>
+                {saving ? 'กำลังบันทึก…' : 'บันทึกรอบตรวจนับ'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

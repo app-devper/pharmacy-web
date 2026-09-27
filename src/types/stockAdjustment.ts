@@ -17,4 +17,9 @@ export interface StockAdjustmentInput {
   delta: number
   reason: AdjustmentReason | ''
   note: string
+  /** Where an increase of a lot-tracked drug goes (pharmacy-api ADR-0007). */
+  lot?: LotTarget
 }
+
+/** An existing lot, or a new lot with its number and expiry (YYYY-MM-DD). */
+export type LotTarget = { lot_id: string } | { lot_number: string; expiry_date: string }

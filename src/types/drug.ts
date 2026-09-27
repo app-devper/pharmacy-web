@@ -103,6 +103,8 @@ export interface DrugLot {
   quantity: number            // original imported qty
   remaining: number           // current qty in this lot
   created_at: string
+  written_off_at?: string     // set once written off; never sold from again
+  no_expiry?: boolean         // OPENING stock imported without lot data
 }
 
 export interface ReorderSuggestion {
