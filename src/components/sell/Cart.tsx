@@ -105,10 +105,7 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
     // hold the same drug under multiple alt-units) and prompt once.
     const shortByDrug = new Map<string, number>()
     for (const si of saleItems) {
-      const d = drugs.find(x => x.id === si.drug_id)
-      const stock = d?.stock ?? 0
       shortByDrug.set(si.drug_id, (shortByDrug.get(si.drug_id) ?? 0) + si.qty)
-      void stock // lint
     }
     const oversoldRows: OversellRow[] = []
     for (const [drugId, need] of shortByDrug) {
@@ -179,8 +176,9 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
       const offlinePatches = (() => {
         const byDrug = new Map<string, number>()
         for (const it of saleItems) {
-          const base = it.qty * (it.unit_factor ?? 1)
-          byDrug.set(it.drug_id, (byDrug.get(it.drug_id) ?? 0) + base)
+          // qty is already in base units (SaleItemInput.qty); unit_factor only
+          // describes how the line was displayed.
+          byDrug.set(it.drug_id, (byDrug.get(it.drug_id) ?? 0) + it.qty)
         }
         const out: { drug_id: string; new_stock: number }[] = []
         for (const [id, used] of byDrug) {

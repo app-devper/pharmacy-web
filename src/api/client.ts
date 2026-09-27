@@ -61,7 +61,30 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     if (res.status === 503 && text.includes(IDENTITY_UNAVAILABLE)) {
       throw new IdentityUnavailableError()
     }
-    throw new Error(text || `HTTP ${res.status}`)
+    throw new ApiError(errorMessage(text, res.status), res.status)
   }
   return res.json() as Promise<T>
+}
+
+/** A request the server refused; message is its human-readable reason. */
+export class ApiError extends Error {
+  readonly status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
+/** pharmacy-api answers errors as {"error": "..."} (plus "code" for identity refusals). */
+function errorMessage(body: string, status: number): string {
+  try {
+    const parsed: unknown = JSON.parse(body)
+    if (parsed && typeof parsed === 'object' && typeof (parsed as { error?: unknown }).error === 'string') {
+      return (parsed as { error: string }).error
+    }
+  } catch {
+    // not JSON: fall through to the raw text
+  }
+  return body || `HTTP ${status}`
 }
