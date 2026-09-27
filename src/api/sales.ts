@@ -1,6 +1,6 @@
-import { apiFetch, IdentityUnavailableError } from './client'
+import { apiFetch, isTemporaryOutage } from './client'
 import { Sale, SaleItem, SaleInput, SaleResponse, DrugReturn, DrugReturnInput } from '../types/sale'
-import { enqueueSale } from '../lib/offlineQueue'
+import { enqueueSale, newSaleRequestId } from '../lib/offlineQueue'
 
 export interface SalesFilter {
   limit?: number
@@ -39,16 +39,21 @@ const OFFLINE_BILL_PREFIX = 'OFFLINE-'
  * Offline-aware createSale.
  * - Online  → POST /api/pharmacy/v1/sales normally
  * - Offline → enqueue in IndexedDB, return a temporary receipt
- * - Online but the server cannot confirm the session (503, ADR-0016) →
- *   the server rejected the request before recording anything, so queue it
- *   like an offline sale; useOfflineSync replays it later.
+ * - Online but the request fails temporarily (the network drops, or the
+ *   server cannot confirm the session, ADR-0016) → queue it like an offline
+ *   sale; useOfflineSync replays it later.
+ *
+ * The sale gets its client_request_id before the first attempt. If the
+ * network dropped after the server recorded the sale, the replay carries the
+ * same id and pharmacy-api returns the existing sale instead of a duplicate.
  */
 export async function createSale(data: SaleInput): Promise<SaleResponse> {
-  if (!navigator.onLine) return queueSale(data)
+  const request = { ...data, client_request_id: data.client_request_id || newSaleRequestId() }
+  if (!navigator.onLine) return queueSale(request)
   try {
-    return await _createSaleRaw(data)
+    return await _createSaleRaw(request)
   } catch (e) {
-    if (e instanceof IdentityUnavailableError) return queueSale(data)
+    if (isTemporaryOutage(e)) return queueSale(request)
     throw e
   }
 }
