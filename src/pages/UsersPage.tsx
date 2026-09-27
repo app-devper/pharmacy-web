@@ -1,3 +1,4 @@
+import { assignableRoles, canManageUser } from '../lib/roles'
 import { useState, useEffect, useCallback } from 'react'
 import type { UmUser, CreateUserInput, UpdateUserInput } from '../types/umUser'
 import {
@@ -10,8 +11,6 @@ import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 
-const ROLES_SUPER = ['SUPER', 'ADMIN', 'USER']
-const ROLES_ADMIN = ['ADMIN', 'USER']
 const CLIENT_ID = 'PHA'
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
@@ -20,6 +19,7 @@ function RoleBadge({ role }: { role: string }) {
   const cls: Record<string, string> = {
     SUPER: 'bg-purple-100 text-purple-700',
     ADMIN: 'bg-blue-100   text-blue-700',
+    MANAGER: 'bg-teal-100 text-teal-700',
     USER:  'bg-gray-100   text-gray-700',
   }
   return (
@@ -232,16 +232,7 @@ function UserDetailModal({ user, onClose }: { user: UmUser; onClose: () => void 
 export default function UsersPage() {
   const showToast = useToast()
   const { user: me } = useAuth()
-  const isSuperAdmin = me?.role === 'SUPER'
-
-  // Mirror ValidateUserRole from API:
-  // SUPER can manage ADMIN + USER; ADMIN can manage USER only
-  const canManage = (target: UmUser) => {
-    if (!me || me.id === target.id) return false
-    if (me.role === 'SUPER') return target.role !== 'SUPER'
-    if (me.role === 'ADMIN') return target.role === 'USER'
-    return false
-  }
+  const canManage = (target: UmUser) => canManageUser(me, target)
 
   const [users, setUsers]               = useState<UmUser[]>([])
   const [loading, setLoading]           = useState(true)
@@ -372,7 +363,7 @@ export default function UsersPage() {
                             onChange={e => handleChangeRole(u, e.target.value)}
                             className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
                           >
-                            {(isSuperAdmin ? ROLES_SUPER : ROLES_ADMIN).map(r => <option key={r} value={r}>{r}</option>)}
+                            {assignableRoles(me?.role, u).map(r => <option key={r} value={r}>{r}</option>)}
                           </select>
                         ) : (
                           <RoleBadge role={u.role} />
