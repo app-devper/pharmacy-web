@@ -85,11 +85,17 @@ export interface StockUpdate {
 }
 
 export interface SaleResponse {
+  /** Sale id; absent on a receipt for a queued bill. */
+  id?: string
   bill_no: string
   discount: number
   total: number
   change: number
   stock_updates?: StockUpdate[]
+  /** Client-side: KY records waiting in the offline queue with this bill. */
+  ky_pending?: number
+  /** Client-side: KY records the server refused, as display labels. */
+  ky_failed?: string[]
 }
 
 export interface CartItem extends Drug {

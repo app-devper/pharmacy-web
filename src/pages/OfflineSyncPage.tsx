@@ -103,7 +103,10 @@ export default function OfflineSyncPage() {
                     {new Date(item.created_at).toLocaleString('th-TH')}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-500">{item.id}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{item.data.items.length}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {item.data.items.length}
+                    {item.ky?.length ? <div className="text-xs text-purple-600">ขย. {item.ky.length} รายการ</div> : null}
+                  </td>
                   <td className="px-4 py-3 text-right tabular-nums">฿{saleTotal(item).toLocaleString()}</td>
                   <td className="px-4 py-3">
                     {item.error ? (

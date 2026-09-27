@@ -1,10 +1,17 @@
 import { openDB } from 'idb'
 import type { SaleInput } from '../types/sale'
+import type { KyRecord } from './kyRecords'
 
 export interface PendingSale {
   id: string
   data: SaleInput
   created_at: number
+  /**
+   * KY records to send after the bill is confirmed. A bill that the server
+   * already recorded may stay queued only for these; replaying it returns the
+   * same sale because of client_request_id.
+   */
+  ky?: KyRecord[]
   /** Last replay error — set by markSaleError, surfaced via useOfflineSync.failed. */
   error?: string
 }
@@ -52,15 +59,23 @@ async function getDb() {
   return _db
 }
 
-export async function enqueueSale(data: SaleInput): Promise<string> {
+export async function enqueueSale(data: SaleInput, ky: KyRecord[] = []): Promise<string> {
   const id = data.client_request_id || makeOfflineId()
   const db = await getDb()
   await db.put(STORE, {
     id,
     data: { ...data, client_request_id: id },
     created_at: Date.now(),
+    ...(ky.length > 0 ? { ky } : {}),
   } satisfies PendingSale)
   return id
+}
+
+/** Replace the KY records still waiting on a queued bill. */
+export async function setPendingKy(id: string, ky: KyRecord[]): Promise<void> {
+  const db = await getDb()
+  const item = await db.get(STORE, id)
+  if (item) await db.put(STORE, { ...item, ky })
 }
 
 export async function getPendingSales(): Promise<PendingSale[]> {
