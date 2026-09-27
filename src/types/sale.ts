@@ -147,6 +147,8 @@ export interface ReturnItemInput {
 }
 
 export interface DrugReturnInput {
+  /** Same id for a retry of the same return; see lib/requestId. */
+  client_request_id?: string
   items: ReturnItemInput[]
   reason: string
 }
