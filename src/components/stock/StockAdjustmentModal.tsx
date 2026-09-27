@@ -4,7 +4,8 @@ import Button from '../ui/Button'
 import { createAdjustment } from '../../api/stockAdjustments'
 import { useToast } from '../../hooks/useToast'
 import type { Drug } from '../../types/drug'
-import { ADJUSTMENT_REASONS, type AdjustmentReason } from '../../types/stockAdjustment'
+import { ADJUSTMENT_REASONS, type AdjustmentReason, type LotTarget } from '../../types/stockAdjustment'
+import LotPicker from './LotPicker'
 
 interface Props {
   drug: Drug
@@ -19,14 +20,20 @@ export default function StockAdjustmentModal({ drug, onClose, onSaved }: Props) 
   const [note, setNote]     = useState('')
   const [loading, setLoading] = useState(false)
 
+  const [lot, setLot] = useState<{ target: LotTarget | null; needed: boolean }>({ target: null, needed: false })
+
   const preview = drug.stock + delta
-  const canSave = delta !== 0 && reason !== ''
+  const increasing = delta > 0
+  const canSave = delta !== 0 && reason !== '' && (!increasing || !lot.needed || lot.target !== null)
 
   const handleSave = async () => {
     if (!canSave) return
     setLoading(true)
     try {
-      const updated = await createAdjustment(drug.id, { delta, reason: reason as AdjustmentReason, note })
+      const updated = await createAdjustment(drug.id, {
+        delta, reason: reason as AdjustmentReason, note,
+        lot: increasing && lot.target ? lot.target : undefined,
+      })
       showToast(`ปรับสต็อกสำเร็จ: ${drug.stock} → ${updated.stock} ${drug.unit}`)
       onSaved(updated)
     } catch (e: unknown) {
@@ -84,6 +91,14 @@ export default function StockAdjustmentModal({ drug, onClose, onSaved }: Props) 
             {' '}<span className="text-gray-400 font-normal">{drug.unit}</span>
           </span>
         </div>
+
+        {/* Lot for an increase (lot-tracked drugs) */}
+        {increasing && (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">เพิ่มเข้าล็อต</label>
+            <LotPicker drugId={drug.id} onChange={(target, needed) => setLot({ target, needed })} />
+          </div>
+        )}
 
         {/* Reason */}
         <div>

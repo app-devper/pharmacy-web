@@ -34,6 +34,8 @@ export interface SaleItemInput {
 
 export interface SaleInput {
   client_request_id?: string
+  /** The cashier skipped the KY forms this sale required; marks it for review. */
+  ky_skipped_by_cashier?: boolean
   customer_id?: string
   items: SaleItemInput[]
   discount?: number

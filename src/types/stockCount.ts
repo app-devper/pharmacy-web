@@ -1,6 +1,10 @@
+import type { LotTarget } from './stockAdjustment'
+
 export interface StockCountInputItem {
   drug_id: string
   counted: number
+  /** Where a count above system stock goes, for a lot-tracked drug. */
+  lot?: LotTarget
 }
 
 export interface StockCountInput {
