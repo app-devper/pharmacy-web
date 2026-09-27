@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createSale } from '../../api/sales'
-import { addKy10, addKy11, addKy12 } from '../../api/kyforms'
+import type { KyRecord } from '../../lib/kyRecords'
 import { useCart } from '../../context/CartContext'
 import { useSettings } from '../../context/SettingsContext'
 import { useToast } from '../../hooks/useToast'
@@ -88,77 +88,66 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
   const upd11 = (k: keyof typeof f11, v: string) => setF11(s => ({ ...s, [k]: v }))
   const upd12 = (k: keyof typeof f12, v: string) => setF12(s => ({ ...s, [k]: v }))
 
+  /** KY records for this bill; they are sent once the bill is confirmed. */
+  const buildKyRecords = (): KyRecord[] => {
+    const date = getToday()
+    return [
+      ...ky10Items.map((item): KyRecord => ({ form: 'ky10', data: {
+        date,
+        drug_name: item.name,
+        reg_no: item.reg_no ?? '',
+        unit: item.unit ?? 'เม็ด',
+        qty: item.qty,
+        buyer_name: f10.buyer_name,
+        buyer_address: f10.buyer_address,
+        rx_no: f10.rx_no,
+        doctor: f10.doctor,
+        balance: parseInt(f10.balance) || 0,
+      } })),
+      ...ky11Items.map((item): KyRecord => ({ form: 'ky11', data: {
+        date,
+        drug_name: item.name,
+        reg_no: item.reg_no ?? '',
+        unit: item.unit ?? 'เม็ด',
+        qty: item.qty,
+        buyer_name: f11.buyer_name,
+        purpose: f11.purpose,
+        pharmacist: f11.pharmacist,
+      } })),
+      ...ky12Items.map((item): KyRecord => ({ form: 'ky12', data: {
+        date,
+        drug_name: item.name,
+        qty: item.qty,
+        unit: item.unit ?? 'เม็ด',
+        rx_no: f12.rx_no,
+        patient_name: f12.patient_name,
+        doctor: f12.doctor,
+        hospital: f12.hospital,
+        total_value: getDrugSellPrice(item) * item.qty,
+        status: f12.status,
+      } })),
+    ]
+  }
+
   const doCheckout = async (withKy: boolean) => {
     setSaving(true)
     try {
-      // 1. Create sale
+      // The bill and its KY records go together: if the bill is queued, or
+      // the connection drops before the records are sent, they wait in the
+      // offline queue with the bill.
       const result = await createSale({
         items: data.saleItems,
         discount: data.discountAmt || undefined,
         received: data.received,
         customer_id: data.customer_id,
-      })
+      }, withKy ? buildKyRecords() : [])
 
-      // 2. Create KY records (if not skipped)
-      if (withKy) {
-        const date = getToday()
-        const kyErrors: string[] = []
-
-        for (const item of ky10Items) {
-          try {
-            await addKy10({
-              date,
-              drug_name: item.name,
-              reg_no: item.reg_no ?? '',
-              unit: item.unit ?? 'เม็ด',
-              qty: item.qty,
-              buyer_name: f10.buyer_name,
-              buyer_address: f10.buyer_address,
-              rx_no: f10.rx_no,
-              doctor: f10.doctor,
-              balance: parseInt(f10.balance) || 0,
-            })
-          } catch { kyErrors.push(`ขย.10: ${item.name}`) }
-        }
-
-        for (const item of ky11Items) {
-          try {
-            await addKy11({
-              date,
-              drug_name: item.name,
-              reg_no: item.reg_no ?? '',
-              unit: item.unit ?? 'เม็ด',
-              qty: item.qty,
-              buyer_name: f11.buyer_name,
-              purpose: f11.purpose,
-              pharmacist: f11.pharmacist,
-            })
-          } catch { kyErrors.push(`ขย.11: ${item.name}`) }
-        }
-
-        for (const item of ky12Items) {
-          try {
-            await addKy12({
-              date,
-              drug_name: item.name,
-              qty: item.qty,
-              unit: item.unit ?? 'เม็ด',
-              rx_no: f12.rx_no,
-              patient_name: f12.patient_name,
-              doctor: f12.doctor,
-              hospital: f12.hospital,
-              total_value: getDrugSellPrice(item) * item.qty,
-              status: f12.status,
-            })
-          } catch { kyErrors.push(`ขย.12: ${item.name}`) }
-        }
-
-        if (kyErrors.length > 0) {
-          showToast(`บิล #${result.bill_no} บันทึกแล้ว แต่บันทึก ขย. ไม่ครบ (${kyErrors.join(', ')}) — กรุณากรอกเพิ่มเองใน ขย. โดยตรง`, 'error')
-        }
+      if (result.ky_failed?.length) {
+        showToast(`บิล #${result.bill_no} บันทึกแล้ว แต่บันทึก ขย. ไม่ครบ (${result.ky_failed.join(', ')}) — กรุณากรอกเพิ่มเองใน ขย. โดยตรง`, 'error')
+      } else if (result.ky_pending) {
+        showToast(`เก็บ ขย. ${result.ky_pending} รายการไว้กับบิลในรายการค้างซิงค์ — จะส่งเมื่อกลับมาออนไลน์`, 'info')
       }
 
-      // 3. Cleanup cart
       clearCart()
       setSelectedCustomer(null)
       onDone(result, data.cartItems, data.priceTier)
