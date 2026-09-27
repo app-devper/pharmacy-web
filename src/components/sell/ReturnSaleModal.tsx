@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import Button from '../ui/Button'
 import { createReturn } from '../../api/sales'
+import { newRequestId } from '../../lib/requestId'
 import { useToast } from '../../hooks/useToast'
 import { fmtDate, fmtMoney } from '../../utils/formatters'
 import type { Sale, SaleItem, DrugReturn } from '../../types/sale'
@@ -20,6 +21,9 @@ export default function ReturnSaleModal({ sale, items, existingReturns, onClose,
   )
   const [reason, setReason]   = useState('')
   const [loading, setLoading] = useState(false)
+  // One request id per distinct return: a retry of the same items and reason
+  // reuses it, so a lost response cannot record the return twice.
+  const attempt = useRef<{ key: string; id: string } | null>(null)
 
   // Compute already-returned qty per sale_item from existing returns
   const alreadyReturned = useMemo(() => {
@@ -57,7 +61,10 @@ export default function ReturnSaleModal({ sale, items, existingReturns, onClose,
         .filter(i => (returnQtys[i.id] ?? 0) > 0)
         .map(i => ({ sale_item_id: i.id, qty: returnQtys[i.id] }))
 
-      const result = await createReturn(sale.id, { items: filteredItems, reason: reason.trim() })
+      const request = { items: filteredItems, reason: reason.trim() }
+      const key = JSON.stringify(request)
+      if (attempt.current?.key !== key) attempt.current = { key, id: newRequestId('return') }
+      const result = await createReturn(sale.id, { ...request, client_request_id: attempt.current.id })
       showToast(`คืนยาสำเร็จ — คืนเงิน ${fmtMoney(result.refund)}`)
       onReturned(result)
     } catch (e: unknown) {
