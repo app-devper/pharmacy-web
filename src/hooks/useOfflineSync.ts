@@ -6,7 +6,9 @@ import {
   getPendingSales,
   removePendingSale,
   markSaleError,
+  setPendingKy,
 } from '../lib/offlineQueue'
+import { kyRecordLabel, submitKyRecords } from '../lib/kyRecords'
 import { _createSaleRaw } from '../api/sales'
 import { IdentityUnavailableError, isTemporaryOutage } from '../api/client'
 
@@ -23,7 +25,9 @@ import { IdentityUnavailableError, isTemporaryOutage } from '../api/client'
  * Sync semantics:
  *   - Loop walks queued sales one at a time, calling _createSaleRaw
  *     (direct API; no offline fallback)
- *   - On success → removePendingSale + `ok++`
+ *   - On success → send the bill's queued KY records with its sale id,
+ *     then removePendingSale + `ok++`. Records not yet accepted stay on the
+ *     queued bill; replaying it returns the same sale (client_request_id).
  *   - On a sale-specific failure (4xx/5xx, validation error) →
  *     markSaleError + `fail++` and continue to the next sale
  *   - On a temporary outage (network failure, or the server cannot
@@ -59,10 +63,21 @@ export function useOfflineSync() {
 
     for (const item of queue) {
       try {
-        await _createSaleRaw({
+        const sale = await _createSaleRaw({
           ...item.data,
           client_request_id: item.data.client_request_id || item.id,
         })   // direct API — bypass offline wrapper
+        if (item.ky?.length) {
+          const sent = await submitKyRecords(sale.id, item.ky)
+          const left = [...sent.failed, ...sent.unsent]
+          if (left.length > 0) await setPendingKy(item.id, left)
+          if (sent.outage) throw sent.outage
+          if (sent.failed.length > 0) {
+            await markSaleError(item.id, `บิลบันทึกแล้ว แต่บันทึก ขย. ไม่สำเร็จ: ${sent.failed.map(kyRecordLabel).join(', ')}`)
+            fail++
+            continue
+          }
+        }
         await removePendingSale(item.id)
         ok++
       } catch (e) {

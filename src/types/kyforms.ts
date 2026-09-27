@@ -39,6 +39,8 @@ export interface Ky10 {
 }
 
 export interface Ky10Input {
+  /** The bill this record belongs to. */
+  sale_id?: string
   date: string
   drug_name: string
   reg_no: string
@@ -65,6 +67,8 @@ export interface Ky11 {
 }
 
 export interface Ky11Input {
+  /** The bill this record belongs to. */
+  sale_id?: string
   date: string
   drug_name: string
   reg_no: string
@@ -91,6 +95,8 @@ export interface Ky12 {
 }
 
 export interface Ky12Input {
+  /** The bill this record belongs to. */
+  sale_id?: string
   date: string
   rx_no: string
   patient_name: string

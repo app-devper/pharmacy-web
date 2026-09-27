@@ -1,6 +1,7 @@
 import { apiFetch, isTemporaryOutage } from './client'
 import { Sale, SaleItem, SaleInput, SaleResponse, DrugReturn, DrugReturnInput } from '../types/sale'
 import { enqueueSale, newSaleRequestId } from '../lib/offlineQueue'
+import { kyRecordLabel, submitKyRecords, type KyRecord } from '../lib/kyRecords'
 
 export interface SalesFilter {
   limit?: number
@@ -46,29 +47,39 @@ const OFFLINE_BILL_PREFIX = 'OFFLINE-'
  * The sale gets its client_request_id before the first attempt. If the
  * network dropped after the server recorded the sale, the replay carries the
  * same id and pharmacy-api returns the existing sale instead of a duplicate.
+ *
+ * KY records (`ky`) are sent after the bill is confirmed, with its sale id.
+ * If the bill is queued, or the connection drops while sending them, the
+ * records wait in the queue with the bill instead of being lost.
  */
-export async function createSale(data: SaleInput): Promise<SaleResponse> {
+export async function createSale(data: SaleInput, ky: KyRecord[] = []): Promise<SaleResponse> {
   const request = { ...data, client_request_id: data.client_request_id || newSaleRequestId() }
-  if (!navigator.onLine) return queueSale(request)
+  if (!navigator.onLine) return queueSale(request, ky)
+  let result: SaleResponse
   try {
-    return await _createSaleRaw(request)
+    result = await _createSaleRaw(request)
   } catch (e) {
-    if (isTemporaryOutage(e)) return queueSale(request)
+    if (isTemporaryOutage(e)) return queueSale(request, ky)
     throw e
   }
+  if (ky.length === 0) return result
+  const sent = await submitKyRecords(result.id, ky)
+  if (sent.unsent.length > 0) await enqueueSale(request, sent.unsent)
+  return { ...result, ky_pending: sent.unsent.length, ky_failed: sent.failed.map(kyRecordLabel) }
 }
 
 /** True when createSale queued the sale instead of confirming it with the server. */
 export const isQueuedReceipt = (r: SaleResponse) => r.bill_no.startsWith(OFFLINE_BILL_PREFIX)
 
-async function queueSale(data: SaleInput): Promise<SaleResponse> {
-  const id    = await enqueueSale(data)
+async function queueSale(data: SaleInput, ky: KyRecord[]): Promise<SaleResponse> {
+  const id    = await enqueueSale(data, ky)
   const total = data.items.reduce((s, i) => s + i.price * i.qty, 0) - (data.discount ?? 0)
   return {
     bill_no:  `${OFFLINE_BILL_PREFIX}${id.slice(-8)}`,
     total:    Math.max(0, total),
     discount: data.discount ?? 0,
     change:   Math.max(0, data.received - Math.max(0, total)),
+    ky_pending: ky.length,
   }
 }
 
