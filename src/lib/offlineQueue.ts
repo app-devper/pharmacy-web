@@ -1,5 +1,6 @@
 import { openDB } from 'idb'
 import type { SaleInput } from '../types/sale'
+import { newRequestId } from './requestId'
 import type { KyRecord } from './kyRecords'
 
 export interface PendingSale {
@@ -36,10 +37,7 @@ let _db: Awaited<ReturnType<typeof openDB>> | null = null
  * returns the existing sale for a repeated client_request_id.
  */
 export function newSaleRequestId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return `sale-${crypto.randomUUID()}`
-  }
-  return `sale-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return newRequestId('sale')
 }
 
 function makeOfflineId() {
