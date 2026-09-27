@@ -23,6 +23,18 @@ const STORE      = 'pending_sales'
 // Singleton IDB connection
 let _db: Awaited<ReturnType<typeof openDB>> | null = null
 
+/**
+ * Idempotency key for a sale, created before the first attempt so that a
+ * retry after a lost response cannot record the sale twice: pharmacy-api
+ * returns the existing sale for a repeated client_request_id.
+ */
+export function newSaleRequestId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `sale-${crypto.randomUUID()}`
+  }
+  return `sale-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 function makeOfflineId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return `offline-${crypto.randomUUID()}`
