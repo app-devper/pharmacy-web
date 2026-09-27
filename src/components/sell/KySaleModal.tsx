@@ -140,6 +140,7 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
         discount: data.discountAmt || undefined,
         received: data.received,
         customer_id: data.customer_id,
+        ky_skipped_by_cashier: withKy ? undefined : true,
       }, withKy ? buildKyRecords() : [])
 
       if (result.ky_failed?.length) {
