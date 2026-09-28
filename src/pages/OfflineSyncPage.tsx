@@ -1,51 +1,83 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import Button from '../components/ui/Button'
-import Spinner from '../components/ui/Spinner'
+import Modal from '../components/ui/Modal'
+import { useAuth } from '../context/AuthContext'
 import { useOfflineSync } from '../hooks/useOfflineSync'
 import { useToast } from '../hooks/useToast'
-import { getPendingSales, removePendingSale, type PendingSale } from '../lib/offlineQueue'
+import { hasRole } from '../lib/roles'
+import { abandon, discardDamaged, exportEntry, retry, type PendingEntry } from '../lib/pendingSales'
 
-function saleTotal(item: PendingSale) {
+function saleTotal(item: PendingEntry) {
+  if (item.state === 'damaged') return 0
   const subtotal = item.data.items.reduce((sum, saleItem) => sum + saleItem.price * saleItem.qty, 0)
   return Math.max(0, subtotal - (item.data.discount ?? 0))
 }
 
+const STATUS: Record<PendingEntry['state'], { label: string; className: string }> = {
+  pending:    { label: 'รอซิงค์',       className: 'bg-amber-100 text-amber-700' },
+  conflict:   { label: 'ถูกปฏิเสธ',     className: 'bg-red-100 text-red-700' },
+  ky_pending: { label: 'ขย. ค้าง',      className: 'bg-purple-100 text-purple-700' },
+  damaged:    { label: 'ข้อมูลเสียหาย', className: 'bg-gray-200 text-gray-700' },
+}
+
+type Resolving =
+  | { kind: 'abandon'; entry: PendingEntry; reason: string }
+  | { kind: 'discard'; entry: PendingEntry }
+
 export default function OfflineSyncPage() {
   const showToast = useToast()
-  const { sync, syncing } = useOfflineSync()
-  const [items, setItems] = useState<PendingSale[]>([])
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
+  const canResolve = hasRole(user?.role, 'ADMIN')
+  const { entries, pending, needsAction, sync, syncing, refresh } = useOfflineSync()
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [exported, setExported] = useState<Set<string>>(new Set())
+  const [resolving, setResolving] = useState<Resolving | null>(null)
+  const [working, setWorking] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const busy = syncing || busyId !== null || working
+
+  const handleRetry = async (item: PendingEntry) => {
+    setBusyId(item.id)
     try {
-      const queue = await getPendingSales()
-      setItems(queue.sort((a, b) => a.created_at - b.created_at))
+      const state = await retry(item.id)
+      if (state === null) showToast('ส่งบิลเข้าระบบแล้ว', 'success')
+      else showToast('บิลยังส่งไม่ผ่าน ดูเหตุผลที่รายการ', 'error')
     } catch (e) {
       showToast((e as Error).message, 'error')
     } finally {
-      setLoading(false)
+      setBusyId(null)
     }
-  }, [showToast])
-
-  useEffect(() => { load() }, [load])
-
-  const failed = useMemo(() => items.filter(item => item.error), [items])
-  const pending = items.length
-
-  const handleRetry = async () => {
-    await sync()
-    await load()
   }
 
-  const handleCancel = async (item: PendingSale) => {
-    if (!window.confirm(`ยกเลิกบิลค้างซิงค์ ${item.id}? รายการนี้จะไม่ถูกส่งเข้า backend`)) return
-    await removePendingSale(item.id)
-    showToast('ยกเลิกรายการค้างซิงค์แล้ว', 'success')
-    await load()
+  const handleExport = async (item: PendingEntry) => {
+    try {
+      await exportEntry(item.id)
+      setExported(prev => new Set(prev).add(item.id))
+    } catch (e) {
+      showToast((e as Error).message, 'error')
+    }
   }
 
-  if (loading) return <Spinner />
+  const confirmResolving = async () => {
+    if (!resolving) return
+    setWorking(true)
+    try {
+      if (resolving.kind === 'abandon') {
+        await abandon(resolving.entry.id, resolving.reason)
+        showToast('บันทึกการยกเลิกแล้ว', 'success')
+      } else {
+        await discardDamaged(resolving.entry.id)
+        showToast('ลบข้อมูลที่เสียหายแล้ว', 'success')
+      }
+      setResolving(null)
+    } catch (e) {
+      showToast((e as Error).message, 'error')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  const kyOnly = resolving?.entry.state === 'ky_pending'
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -55,8 +87,8 @@ export default function OfflineSyncPage() {
           <p className="text-xs text-gray-400 mt-0.5">ตรวจสอบบิล offline ที่ยังไม่ได้ส่งเข้า backend</p>
         </div>
         <div className="flex-1" />
-        <Button variant="secondary" onClick={load}>รีเฟรช</Button>
-        <Button onClick={handleRetry} disabled={syncing || pending === 0}>
+        <Button variant="secondary" onClick={refresh}>รีเฟรช</Button>
+        <Button onClick={sync} disabled={busy || pending === 0}>
           {syncing ? 'กำลังซิงค์…' : 'ลองซิงค์ทั้งหมด'}
         </Button>
       </div>
@@ -65,15 +97,15 @@ export default function OfflineSyncPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="bg-white border border-gray-100 rounded-xl p-4">
             <div className="text-2xl font-bold text-gray-800">{pending}</div>
-            <div className="text-xs text-gray-400">รายการค้างทั้งหมด</div>
+            <div className="text-xs text-gray-400">รอซิงค์ (ส่งซ้ำอัตโนมัติ)</div>
           </div>
           <div className="bg-white border border-gray-100 rounded-xl p-4">
-            <div className="text-2xl font-bold text-red-600">{failed.length}</div>
-            <div className="text-xs text-gray-400">ซิงค์ล้มเหลว</div>
+            <div className="text-2xl font-bold text-red-600">{needsAction}</div>
+            <div className="text-xs text-gray-400">ต้องจัดการ (ไม่ส่งซ้ำอัตโนมัติ)</div>
           </div>
           <div className="bg-white border border-gray-100 rounded-xl p-4">
             <div className="text-2xl font-bold text-gray-800">
-              ฿{items.reduce((sum, item) => sum + saleTotal(item), 0).toLocaleString()}
+              ฿{entries.reduce((sum, item) => sum + saleTotal(item), 0).toLocaleString()}
             </div>
             <div className="text-xs text-gray-400">มูลค่ารวม</div>
           </div>
@@ -84,7 +116,7 @@ export default function OfflineSyncPage() {
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-4 py-2 font-semibold text-gray-500">เวลา</th>
-                <th className="text-left px-4 py-2 font-semibold text-gray-500">รหัส queue</th>
+                <th className="text-left px-4 py-2 font-semibold text-gray-500">รหัส queue / บิล</th>
                 <th className="text-right px-4 py-2 font-semibold text-gray-500">รายการ</th>
                 <th className="text-right px-4 py-2 font-semibold text-gray-500">ยอดรวม</th>
                 <th className="text-left px-4 py-2 font-semibold text-gray-500">สถานะ</th>
@@ -92,34 +124,57 @@ export default function OfflineSyncPage() {
               </tr>
             </thead>
             <tbody>
-              {items.length === 0 && (
+              {entries.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-gray-400">ไม่มีรายการค้างซิงค์</td>
                 </tr>
               )}
-              {items.map(item => (
-                <tr key={item.id} className="border-b border-gray-50">
+              {entries.map(item => (
+                <tr key={item.id} className="border-b border-gray-50 align-top">
                   <td className="px-4 py-3 text-gray-600">
-                    {new Date(item.created_at).toLocaleString('th-TH')}
+                    {item.created_at ? new Date(item.created_at).toLocaleString('th-TH') : '-'}
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{item.id}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">
+                    {item.id}
+                    {item.state !== 'damaged' && item.bill_no && <div className="text-gray-700">บิล {item.bill_no}</div>}
+                  </td>
                   <td className="px-4 py-3 text-right tabular-nums">
-                    {item.data.items.length}
-                    {item.ky?.length ? <div className="text-xs text-purple-600">ขย. {item.ky.length} รายการ</div> : null}
+                    {item.state === 'damaged' ? '-' : item.data.items.length}
+                    {item.state !== 'damaged' && item.ky?.length ? <div className="text-xs text-purple-600">ขย. {item.ky.length} รายการ</div> : null}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">฿{saleTotal(item).toLocaleString()}</td>
                   <td className="px-4 py-3">
-                    {item.error ? (
-                      <div>
-                        <span className="inline-flex px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs font-medium">ล้มเหลว</span>
-                        <div className="text-xs text-red-500 mt-1 max-w-md break-words">{item.error}</div>
-                      </div>
-                    ) : (
-                      <span className="inline-flex px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-xs font-medium">รอซิงค์</span>
-                    )}
+                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${STATUS[item.state].className}`}>
+                      {busyId === item.id ? 'กำลังส่ง…' : STATUS[item.state].label}
+                    </span>
+                    {item.state === 'damaged' ? (
+                      <div className="text-xs text-gray-500 mt-1 max-w-md">อ่านข้อมูลบิลนี้ไม่ได้ ให้ส่งออกไฟล์เก็บไว้ก่อน</div>
+                    ) : item.error ? (
+                      <div className="text-xs text-red-500 mt-1 max-w-md break-words">{item.error}</div>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Button variant="secondary" onClick={() => handleCancel(item)}>ยกเลิก</Button>
+                    <div className="flex justify-end gap-2 flex-wrap">
+                      {item.state !== 'damaged' && (
+                        <Button variant="secondary" disabled={busy} onClick={() => handleRetry(item)}>ลองส่งใหม่</Button>
+                      )}
+                      {item.state !== 'damaged' && canResolve && (
+                        <Button variant="danger" disabled={busy} onClick={() => setResolving({ kind: 'abandon', entry: item, reason: '' })}>
+                          {item.state === 'ky_pending' ? 'ปิดเรื่อง ขย.' : 'ยกเลิกบิล'}
+                        </Button>
+                      )}
+                      <Button variant="ghost" disabled={busy} onClick={() => handleExport(item)}>ส่งออกไฟล์</Button>
+                      {item.state === 'damaged' && canResolve && (
+                        <Button
+                          variant="danger"
+                          disabled={busy || !exported.has(item.id)}
+                          title={exported.has(item.id) ? undefined : 'ส่งออกไฟล์ก่อนจึงลบได้'}
+                          onClick={() => setResolving({ kind: 'discard', entry: item })}
+                        >
+                          ลบ
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -127,6 +182,43 @@ export default function OfflineSyncPage() {
           </table>
         </div>
       </div>
+
+      {resolving && (
+        <Modal
+          title={resolving.kind === 'discard' ? 'ลบข้อมูลที่เสียหาย?' : kyOnly ? 'ปิดเรื่อง ขย. ที่ค้าง?' : 'ยกเลิกบิลที่ค้าง?'}
+          onClose={() => { if (!working) setResolving(null) }}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              {resolving.kind === 'discard'
+                ? 'ข้อมูลที่อ่านไม่ได้นี้จะถูกลบออกจากเครื่อง (ส่งออกไฟล์เก็บไว้แล้ว)'
+                : kyOnly
+                  ? 'ขย. ที่ถูกปฏิเสธจะไม่ถูกบันทึก ระบบจะเก็บแบบฟอร์มกับเหตุผลไว้ตรวจสอบย้อนหลัง'
+                  : 'บิลนี้จะไม่ถูกบันทึกเป็นยอดขาย ระบบจะเก็บข้อมูลบิลกับเหตุผลไว้ตรวจสอบย้อนหลัง'}
+            </p>
+            {resolving.kind === 'abandon' && (
+              <textarea
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                rows={3}
+                placeholder="เหตุผล (จำเป็น)"
+                value={resolving.reason}
+                disabled={working}
+                onChange={e => setResolving({ ...resolving, reason: e.target.value })}
+              />
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" disabled={working} onClick={() => setResolving(null)}>ยกเลิก</Button>
+              <Button
+                variant="danger"
+                disabled={working || (resolving.kind === 'abandon' && !resolving.reason.trim())}
+                onClick={confirmResolving}
+              >
+                {working ? 'กำลังบันทึก…' : resolving.kind === 'discard' ? 'ลบ' : kyOnly ? 'ปิดเรื่อง ขย.' : 'ยกเลิกบิล'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
