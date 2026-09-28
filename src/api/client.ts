@@ -61,7 +61,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     if (res.status === 503 && text.includes(IDENTITY_UNAVAILABLE)) {
       throw new IdentityUnavailableError()
     }
-    throw new ApiError(errorMessage(text, res.status), res.status)
+    throw new ApiError(errorMessage(text, res.status), res.status, text)
   }
   return res.json() as Promise<T>
 }
@@ -69,10 +69,13 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
 /** A request the server refused; message is its human-readable reason. */
 export class ApiError extends Error {
   readonly status: number
-  constructor(message: string, status: number) {
+  /** The raw response body. */
+  readonly body: string
+  constructor(message: string, status: number, body = '') {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.body = body
   }
 }
 

@@ -2,110 +2,51 @@ import { useState, useEffect, useCallback } from 'react'
 import { useOnlineStatus } from './useOnlineStatus'
 import { useToast } from './useToast'
 import { useDrugs } from '../context/DrugsContext'
-import {
-  getPendingSales,
-  removePendingSale,
-  markSaleError,
-  setPendingKy,
-} from '../lib/offlineQueue'
-import { kyRecordLabel, submitKyRecords } from '../lib/kyRecords'
-import { _createSaleRaw } from '../api/sales'
-import { IdentityUnavailableError, isTemporaryOutage } from '../api/client'
+import { listPendingSales, onPendingSalesChange, syncAll, type PendingEntry } from '../lib/pendingSales'
 
 /**
- * useOfflineSync
+ * useOfflineSync — pending sales for the UI (lib/pendingSales owns the rules).
  *
- * - Tracks the number of pending (offline-queued) sales + how many have
- *   previously failed to sync (items with a `.error` tag)
- * - Auto-syncs when the browser comes back online
- * - After a successful sync, triggers a drug re-fetch so any optimistic
- *   offline stock patches get replaced by authoritative server values
- * - Exposes { pending, failed, syncing, sync } for the UI
- *
- * Sync semantics:
- *   - Loop walks queued sales one at a time, calling _createSaleRaw
- *     (direct API; no offline fallback)
- *   - On success → send the bill's queued KY records with its sale id,
- *     then removePendingSale + `ok++`. Records not yet accepted stay on the
- *     queued bill; replaying it returns the same sale (client_request_id).
- *   - On a sale-specific failure (4xx/5xx, validation error) →
- *     markSaleError + `fail++` and continue to the next sale
- *   - On a temporary outage (network failure, or the server cannot
- *     confirm the session) → break the loop entirely; tell the user once,
- *     and leave the remaining sales untouched so they're picked up on the
- *     next sync()
+ * - `entries`: every pending sale in this browser, oldest first
+ * - `pending`: waiting only for the server; synced automatically when the
+ *   browser comes back online
+ * - `needsAction`: refused, KY pending, or damaged; never retried
+ *   automatically
+ * - After a sync records anything, drugs are re-fetched so optimistic offline
+ *   stock patches give way to server values.
  */
 export function useOfflineSync() {
   const online    = useOnlineStatus()
   const showToast = useToast()
   const { reload: reloadDrugs } = useDrugs()
-  const [pending, setPending] = useState(0)
-  const [failed, setFailed]   = useState(0)
+  const [entries, setEntries] = useState<PendingEntry[]>([])
   const [syncing, setSyncing] = useState(false)
 
   const refresh = useCallback(async () => {
-    const queue = await getPendingSales()
-    setPending(queue.length)
-    setFailed(queue.filter(q => q.error).length)
+    setEntries(await listPendingSales())
   }, [])
 
-  // Count pending on mount
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    refresh()
+    return onPendingSalesChange(() => { refresh() })
+  }, [refresh])
 
   const sync = useCallback(async () => {
-    const queue = await getPendingSales()
-    if (queue.length === 0) return
-
+    if ((await listPendingSales()).every(e => e.state !== 'pending')) return
     setSyncing(true)
-    let ok = 0
-    let fail = 0
-    let aborted: 'network' | 'identity' | null = null
-
-    for (const item of queue) {
-      try {
-        const sale = await _createSaleRaw({
-          ...item.data,
-          client_request_id: item.data.client_request_id || item.id,
-        })   // direct API — bypass offline wrapper
-        if (item.ky?.length) {
-          const sent = await submitKyRecords(sale.id, item.ky)
-          const left = [...sent.failed, ...sent.unsent]
-          if (left.length > 0) await setPendingKy(item.id, left)
-          if (sent.outage) throw sent.outage
-          if (sent.failed.length > 0) {
-            await markSaleError(item.id, `บิลบันทึกแล้ว แต่บันทึก ขย. ไม่สำเร็จ: ${sent.failed.map(kyRecordLabel).join(', ')}`)
-            fail++
-            continue
-          }
-        }
-        await removePendingSale(item.id)
-        ok++
-      } catch (e) {
-        if (isTemporaryOutage(e)) {
-          // Connection is down, or the server can't confirm the session
-          // right now — none of the remaining sales will get through.
-          // Stop; the next sync() (auto-fired when connectivity returns,
-          // or manual) retries from where we left off.
-          aborted = e instanceof IdentityUnavailableError ? 'identity' : 'network'
-          break
-        }
-        await markSaleError(item.id, (e as Error).message)
-        fail++
-      }
+    try {
+      const { recorded, refused, outage } = await syncAll()
+      if (recorded > 0) reloadDrugs()
+      if (recorded) showToast(`ซิงค์สำเร็จ ${recorded} รายการ`, 'success')
+      if (refused)  showToast(`server ไม่รับ ${refused} รายการ — ตรวจสอบที่หน้ารายการค้างซิงค์`, 'error')
+      if (outage === 'network')  showToast('เครือข่ายขัดข้อง — ระบบจะลองซิงค์อีกครั้งเมื่อกลับมาออนไลน์', 'info')
+      if (outage === 'identity') showToast('ยืนยันตัวตนไม่ได้ชั่วคราว — รายการยังค้างซิงค์ กรุณากดซิงค์อีกครั้งภายหลัง', 'info')
+    } catch (e) {
+      showToast((e as Error).message, 'error')
+    } finally {
+      setSyncing(false)
     }
-
-    setSyncing(false)
-    await refresh()
-    // Re-fetch drugs so any optimistic offline-stock patches get replaced
-    // by authoritative server values (accounts for lot deductions that
-    // happened elsewhere while this client was offline).
-    if (ok > 0) reloadDrugs()
-
-    if (ok)   showToast(`ซิงค์สำเร็จ ${ok} รายการ`, 'success')
-    if (fail) showToast(`ซิงค์ไม่สำเร็จ ${fail} รายการ — ตรวจสอบรายการที่ค้างซิงค์`, 'error')
-    if (aborted === 'network') showToast('เครือข่ายขัดข้อง — ระบบจะลองซิงค์อีกครั้งเมื่อกลับมาออนไลน์', 'info')
-    if (aborted === 'identity') showToast('ยืนยันตัวตนไม่ได้ชั่วคราว — รายการยังค้างซิงค์ กรุณากดซิงค์อีกครั้งภายหลัง', 'info')
-  }, [refresh, reloadDrugs, showToast])
+  }, [reloadDrugs, showToast])
 
   // Auto-sync as soon as we come back online
   useEffect(() => {
@@ -113,5 +54,7 @@ export function useOfflineSync() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online])
 
-  return { pending, failed, syncing, sync, refresh }
+  const pending = entries.filter(e => e.state === 'pending').length
+  const needsAction = entries.length - pending
+  return { entries, pending, needsAction, syncing, sync, refresh }
 }
