@@ -13,8 +13,13 @@ export interface PendingSale {
    * same sale because of client_request_id.
    */
   ky?: KyRecord[]
-  /** Last replay error — set by markSaleError, surfaced via useOfflineSync.failed. */
+  /** The server's reason for the last failed attempt. */
   error?: string
+  /** Stored state; entries from before states existed are pending (lib/pendingSales). */
+  state?: 'pending' | 'conflict' | 'ky_pending'
+  /** The recorded bill, once the server confirmed the sale. */
+  bill_no?: string
+  attempts?: number
 }
 
 // Lot snapshot: when the drug list is loaded the backend attaches `next_lot`
@@ -69,55 +74,18 @@ export async function enqueueSale(data: SaleInput, ky: KyRecord[] = []): Promise
   return id
 }
 
-/** Replace the KY records still waiting on a queued bill. */
-export async function setPendingKy(id: string, ky: KyRecord[]): Promise<void> {
-  const db = await getDb()
-  const item = await db.get(STORE, id)
-  if (item) await db.put(STORE, { ...item, ky })
-}
-
-export async function getPendingSales(): Promise<PendingSale[]> {
+/** Every stored entry as it is; lib/pendingSales decides which are readable. */
+export async function getPendingSales(): Promise<unknown[]> {
   const db = await getDb()
   return db.getAll(STORE)
+}
+
+export async function putPendingSale(item: PendingSale): Promise<void> {
+  const db = await getDb()
+  await db.put(STORE, item)
 }
 
 export async function removePendingSale(id: string): Promise<void> {
   const db = await getDb()
   await db.delete(STORE, id)
-}
-
-export async function clearSaleError(id: string): Promise<void> {
-  const db = await getDb()
-  const item = await db.get(STORE, id)
-  if (item) {
-    const rest = { ...item }
-    delete rest.error
-    await db.put(STORE, rest)
-  }
-}
-
-export async function markSaleError(id: string, error: string): Promise<void> {
-  const db = await getDb()
-  const item = await db.get(STORE, id)
-  if (item) await db.put(STORE, { ...item, error })
-}
-
-export async function pendingCount(): Promise<number> {
-  const db = await getDb()
-  return db.count(STORE)
-}
-
-/**
- * Drop every queued sale from IDB. Intended for "discard everything" flows
- * — explicit user-initiated cache wipe, automated tenant-switch cleanup,
- * etc. NOT called on routine logout, because queued sales that have not
- * yet hit the server must still sync (the backend dedupes on
- * client_request_id so the next user logging in can complete them).
- *
- * Callers that need to clear pending sales as part of a logout flow
- * should do so explicitly and warn the user first.
- */
-export async function clearPendingSales(): Promise<void> {
-  const db = await getDb()
-  await db.clear(STORE)
 }

@@ -1,4 +1,4 @@
-import { apiFetch, isTemporaryOutage } from './client'
+import { ApiError, apiFetch, isTemporaryOutage } from './client'
 import { Sale, SaleItem, SaleInput, SaleResponse, DrugReturn, DrugReturnInput } from '../types/sale'
 import { enqueueSale, newSaleRequestId } from '../lib/offlineQueue'
 import { kyRecordLabel, submitKyRecords, type KyRecord } from '../lib/kyRecords'
@@ -27,8 +27,42 @@ export const voidSale = (id: string, reason: string) =>
     body: JSON.stringify({ reason }),
   })
 
+export type AbandonOutcome = { abandoned: true } | { abandoned: false; sale: SaleResponse }
+
 /**
- * Direct API call — used internally by useOfflineSync when flushing the queue.
+ * Record that a queued sale will never be recorded, or close a recorded
+ * sale's refused KY records (ADMIN+, pharmacy-api ADR-0009). A queued sale the
+ * server recorded meanwhile comes back as `{abandoned: false, sale}`.
+ */
+export async function abandonQueued(
+  clientRequestId: string, kind: 'sale' | 'ky_forms', payload: unknown, reason: string,
+): Promise<AbandonOutcome> {
+  try {
+    await apiFetch('/api/pharmacy/v1/sales/abandon', {
+      method: 'POST',
+      body: JSON.stringify({ client_request_id: clientRequestId, kind, payload, reason }),
+    })
+    return { abandoned: true }
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 409) {
+      const sale = recordedSale(e.body)
+      if (sale) return { abandoned: false, sale }
+    }
+    throw e
+  }
+}
+
+function recordedSale(body: string): SaleResponse | null {
+  try {
+    const parsed = JSON.parse(body) as { sale?: SaleResponse }
+    return parsed.sale?.bill_no ? parsed.sale : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Direct API call — used internally by pendingSales when flushing the queue.
  * Always hits the network; never queues.
  */
 export const _createSaleRaw = (data: SaleInput) =>
@@ -42,7 +76,7 @@ const OFFLINE_BILL_PREFIX = 'OFFLINE-'
  * - Offline → enqueue in IndexedDB, return a temporary receipt
  * - Online but the request fails temporarily (the network drops, or the
  *   server cannot confirm the session, ADR-0016) → queue it like an offline
- *   sale; useOfflineSync replays it later.
+ *   sale; pendingSales replays it later.
  *
  * The sale gets its client_request_id before the first attempt. If the
  * network dropped after the server recorded the sale, the replay carries the
