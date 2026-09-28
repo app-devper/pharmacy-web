@@ -40,7 +40,22 @@ export interface SaleInput {
   items: SaleItemInput[]
   discount?: number
   received: number
+  /**
+   * What the cashier captured for the bill's KY forms. pharmacy-api records
+   * the forms with the sale and fills drug, quantity, value, date and balance
+   * from it (ADR-0011).
+   */
+  ky?: SaleKyCapture
 }
+
+export interface SaleKyCapture {
+  ky10?: { buyer_name: string; buyer_address: string; rx_no: string; doctor: string }
+  ky11?: { buyer_name: string; purpose: string; pharmacist: string }
+  ky12?: { rx_no: string; patient_name: string; doctor: string; hospital: string; status: string }
+}
+
+/** How a sale met its KY obligations (pharmacy-api ADR-0011). */
+export type KyStatus = 'none' | 'recorded' | 'skipped_cashier' | 'skipped_setting' | 'separate'
 
 export interface Sale {
   id: string
@@ -79,6 +94,12 @@ export interface SaleItem {
   /** Base units sold without a matching lot at sale time (AllowOversell).
    *  Drops toward 0 as future imports reconcile. */
   oversold_qty?: number
+  /** Base units returned so far (pharmacy-api ADR-0012). */
+  returned_qty?: number
+  /** Base units that can still be returned, by the server's return rule. */
+  returnable_qty?: number
+  /** Base units not sold from a lot, which cannot be returned. */
+  unlinked_qty?: number
 }
 
 export interface StockUpdate {
@@ -94,10 +115,7 @@ export interface SaleResponse {
   total: number
   change: number
   stock_updates?: StockUpdate[]
-  /** Client-side: KY records waiting in the offline queue with this bill. */
-  ky_pending?: number
-  /** Client-side: KY records the server refused, as display labels. */
-  ky_failed?: string[]
+  ky_status?: KyStatus
 }
 
 export interface CartItem extends Drug {
