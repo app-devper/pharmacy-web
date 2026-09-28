@@ -79,6 +79,12 @@ export interface SaleItem {
   /** Base units sold without a matching lot at sale time (AllowOversell).
    *  Drops toward 0 as future imports reconcile. */
   oversold_qty?: number
+  /** Base units returned so far (pharmacy-api ADR-0012). */
+  returned_qty?: number
+  /** Base units that can still be returned, by the server's return rule. */
+  returnable_qty?: number
+  /** Base units not sold from a lot, which cannot be returned. */
+  unlinked_qty?: number
 }
 
 export interface StockUpdate {

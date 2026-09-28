@@ -77,6 +77,8 @@ export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props)
   const handleReturned = (newReturn: DrugReturn) => {
     setReturns(prev => [newReturn, ...prev])
     setShowReturn(false)
+    // What each line can still return comes from the server.
+    getSaleItems(sale.id).then(setItems).catch(e => showToast((e as Error).message, 'error'))
     onSaleChanged?.()
   }
 
