@@ -8,7 +8,8 @@ export interface PendingSale {
   data: SaleInput
   created_at: number
   /**
-   * KY records to send after the bill is confirmed. A bill that the server
+   * Legacy: KY records queued by clients before pharmacy-api ADR-0011, sent
+   * after the bill is confirmed. New bills carry their capture in `data.ky`. A bill that the server
    * already recorded may stay queued only for these; replaying it returns the
    * same sale because of client_request_id.
    */

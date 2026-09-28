@@ -1,14 +1,11 @@
 import { useState } from 'react'
 import { createSale } from '../../api/sales'
-import type { KyRecord } from '../../lib/kyRecords'
 import { useCart } from '../../context/CartContext'
 import { useSettings } from '../../context/SettingsContext'
 import { useToast } from '../../hooks/useToast'
-import { getDrugSellPrice } from '../../types/drug'
-import type { CartItem, SaleItemInput, SaleResponse } from '../../types/sale'
+import type { CartItem, SaleItemInput, SaleKyCapture, SaleResponse } from '../../types/sale'
 import type { Customer } from '../../types/customer'
 import type { PriceTier } from '../../types/drug'
-import { todayBangkok } from '../../utils/date'
 
 export interface CheckoutData {
   cartItems: CartItem[]
@@ -26,10 +23,6 @@ interface Props {
   onDone: (result: SaleResponse, items: CartItem[], tier: PriceTier) => void
   onCancel: () => void
 }
-
-// Evaluated lazily (not at module-load) so a session that spans midnight uses
-// the new Bangkok day on the next KY form submission.
-const getToday = () => todayBangkok()
 
 const KY_LABELS: Record<string, { label: string; color: string }> = {
   ky10: { label: 'ขย.10 ยาควบคุมพิเศษ', color: 'bg-purple-100 text-purple-700' },
@@ -69,7 +62,6 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
     buyer_address: settings.ky.default_buyer_address,
     rx_no: '',
     doctor: '',
-    balance: '0',
   })
 
   // ขย.11 form state — pharmacist auto-fills from Settings → เภสัชกร
@@ -88,46 +80,15 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
   const upd11 = (k: keyof typeof f11, v: string) => setF11(s => ({ ...s, [k]: v }))
   const upd12 = (k: keyof typeof f12, v: string) => setF12(s => ({ ...s, [k]: v }))
 
-  /** KY records for this bill; they are sent once the bill is confirmed. */
-  const buildKyRecords = (): KyRecord[] => {
-    const date = getToday()
-    return [
-      ...ky10Items.map((item): KyRecord => ({ form: 'ky10', data: {
-        date,
-        drug_name: item.name,
-        reg_no: item.reg_no ?? '',
-        unit: item.unit ?? 'เม็ด',
-        qty: item.qty,
-        buyer_name: f10.buyer_name,
-        buyer_address: f10.buyer_address,
-        rx_no: f10.rx_no,
-        doctor: f10.doctor,
-        balance: parseInt(f10.balance) || 0,
-      } })),
-      ...ky11Items.map((item): KyRecord => ({ form: 'ky11', data: {
-        date,
-        drug_name: item.name,
-        reg_no: item.reg_no ?? '',
-        unit: item.unit ?? 'เม็ด',
-        qty: item.qty,
-        buyer_name: f11.buyer_name,
-        purpose: f11.purpose,
-        pharmacist: f11.pharmacist,
-      } })),
-      ...ky12Items.map((item): KyRecord => ({ form: 'ky12', data: {
-        date,
-        drug_name: item.name,
-        qty: item.qty,
-        unit: item.unit ?? 'เม็ด',
-        rx_no: f12.rx_no,
-        patient_name: f12.patient_name,
-        doctor: f12.doctor,
-        hospital: f12.hospital,
-        total_value: getDrugSellPrice(item) * item.qty,
-        status: f12.status,
-      } })),
-    ]
-  }
+  /**
+   * What the cashier captured. pharmacy-api records the forms with the bill
+   * and fills drug, quantity, unit, value, date and ขย.10 balance from it.
+   */
+  const buildCapture = (): SaleKyCapture => ({
+    ...(ky10Items.length > 0 ? { ky10: f10 } : {}),
+    ...(ky11Items.length > 0 ? { ky11: f11 } : {}),
+    ...(ky12Items.length > 0 ? { ky12: f12 } : {}),
+  })
 
   const doCheckout = async (withKy: boolean) => {
     setSaving(true)
@@ -141,13 +102,9 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
         received: data.received,
         customer_id: data.customer_id,
         ky_skipped_by_cashier: withKy ? undefined : true,
-      }, withKy ? buildKyRecords() : [])
+        ky: withKy ? buildCapture() : undefined,
+      })
 
-      if (result.ky_failed?.length) {
-        showToast(`บิล #${result.bill_no} บันทึกแล้ว แต่บันทึก ขย. ไม่ครบ (${result.ky_failed.join(', ')}) — กรุณากรอกเพิ่มเองใน ขย. โดยตรง`, 'error')
-      } else if (result.ky_pending) {
-        showToast(`เก็บ ขย. ${result.ky_pending} รายการไว้กับบิลในรายการค้างซิงค์ — จะส่งเมื่อกลับมาออนไลน์`, 'info')
-      }
 
       clearCart()
       setSelectedCustomer(null)
@@ -212,10 +169,10 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
                     <input className={inp} value={f11.buyer_name} onChange={e => upd11('buyer_name', e.target.value)} />
                   </Field>
                 </div>
-                <Field label="วัตถุประสงค์">
+                <Field label="วัตถุประสงค์" required>
                   <input className={inp} value={f11.purpose} onChange={e => upd11('purpose', e.target.value)} />
                 </Field>
-                <Field label="เภสัชกร">
+                <Field label="เภสัชกร" required>
                   <input className={inp} value={f11.pharmacist} onChange={e => upd11('pharmacist', e.target.value)} />
                 </Field>
               </div>
@@ -236,7 +193,7 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
                   </Field>
                 </div>
                 <div className="col-span-2">
-                  <Field label="ที่อยู่">
+                  <Field label="ที่อยู่" required>
                     <input className={inp} value={f10.buyer_address} onChange={e => upd10('buyer_address', e.target.value)} />
                   </Field>
                 </div>
@@ -245,9 +202,6 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
                 </Field>
                 <Field label="แพทย์ผู้สั่ง">
                   <input className={inp} value={f10.doctor} onChange={e => upd10('doctor', e.target.value)} />
-                </Field>
-                <Field label="คงเหลือ">
-                  <input type="number" className={inp} value={f10.balance} onChange={e => upd10('balance', e.target.value)} />
                 </Field>
               </div>
             </section>
@@ -267,7 +221,7 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
                 <Field label="ชื่อผู้ป่วย" required>
                   <input className={inp} value={f12.patient_name} onChange={e => upd12('patient_name', e.target.value)} />
                 </Field>
-                <Field label="แพทย์">
+                <Field label="แพทย์" required>
                   <input className={inp} value={f12.doctor} onChange={e => upd12('doctor', e.target.value)} />
                 </Field>
                 <Field label="สถานพยาบาล">
