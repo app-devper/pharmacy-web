@@ -1,4 +1,4 @@
-import type { UmUser, CreateUserInput, UpdateUserInput } from '../types/umUser'
+import type { UmUser, CreateUserInput, UpdateUserInput, UmUserRules } from '../types/umUser'
 
 const UM_API = import.meta.env.VITE_UM_API_URL || 'http://localhost:8585'
 
@@ -20,6 +20,10 @@ async function umFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 export const listUsers = () =>
   umFetch<UmUser[]>('/api/um/v1/user')
+
+/** What the signed-in user may do beyond individual users (um-api ADR-0006). */
+export const getUserRules = () =>
+  umFetch<UmUserRules>('/api/um/v1/user/rules')
 
 export const getUser = (id: string) =>
   umFetch<UmUser>(`/api/um/v1/user/${id}`)
