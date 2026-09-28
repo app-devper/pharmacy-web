@@ -25,20 +25,16 @@ export default function ReturnSaleModal({ sale, items, existingReturns, onClose,
   // reuses it, so a lost response cannot record the return twice.
   const attempt = useRef<{ key: string; id: string } | null>(null)
 
-  // Compute already-returned qty per sale_item from existing returns
-  const alreadyReturned = useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const ret of existingReturns) {
-      for (const ri of ret.items) {
-        map[ri.sale_item_id] = (map[ri.sale_item_id] ?? 0) + ri.qty
-      }
-    }
-    return map
-  }, [existingReturns])
+  // What each line has returned and can still return comes from the server's
+  // return rule (pharmacy-api ADR-0012), which also caps units not sold from a lot.
+  const alreadyReturned = useMemo(() =>
+    Object.fromEntries(items.map(i => [i.id, i.returned_qty ?? 0])),
+    [items]
+  )
 
   const maxQty = useMemo(() =>
-    Object.fromEntries(items.map(i => [i.id, i.qty - (alreadyReturned[i.id] ?? 0)])),
-    [items, alreadyReturned]
+    Object.fromEntries(items.map(i => [i.id, i.returnable_qty ?? 0])),
+    [items]
   )
 
   const setQty = (id: string, val: number) => {
@@ -119,8 +115,13 @@ export default function ReturnSaleModal({ sale, items, existingReturns, onClose,
                       {item.drug_name}
                       {done && (
                         <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                          คืนครบแล้ว
+                          {(item.unlinked_qty ?? 0) > 0 && (alreadyReturned[item.id] ?? 0) < item.qty ? 'คืนไม่ได้' : 'คืนครบแล้ว'}
                         </span>
+                      )}
+                      {(item.unlinked_qty ?? 0) > 0 && (
+                        <div className="text-xs text-amber-600 font-normal">
+                          {item.unlinked_qty} หน่วยยังไม่ผูกกับล็อต คืนไม่ได้
+                        </div>
                       )}
                     </td>
                     <td className="py-2.5 px-3 text-right text-gray-500 text-xs">
