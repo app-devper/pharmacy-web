@@ -1,8 +1,7 @@
-import { assignableRoles, canManageUser } from '../lib/roles'
 import { useState, useEffect, useCallback } from 'react'
 import type { UmUser, CreateUserInput, UpdateUserInput } from '../types/umUser'
 import {
-  listUsers, createUser, updateUser, deleteUser,
+  listUsers, getUserRules, createUser, updateUser, deleteUser,
   setUserRole, setUserStatus, setUserPassword,
 } from '../api/umUsers'
 import { useToast } from '../hooks/useToast'
@@ -232,9 +231,9 @@ function UserDetailModal({ user, onClose }: { user: UmUser; onClose: () => void 
 export default function UsersPage() {
   const showToast = useToast()
   const { user: me } = useAuth()
-  const canManage = (target: UmUser) => canManageUser(me, target)
 
   const [users, setUsers]               = useState<UmUser[]>([])
+  const [canCreate, setCanCreate]       = useState(false)
   const [loading, setLoading]           = useState(true)
   const [search, setSearch]             = useState('')
   const [showAdd, setShowAdd]           = useState(false)
@@ -244,7 +243,11 @@ export default function UsersPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    try { setUsers(await listUsers()) }
+    try {
+      const [list, rules] = await Promise.all([listUsers(), getUserRules()])
+      setUsers(list)
+      setCanCreate(rules.creatableRoles.length > 0)
+    }
     catch (e: unknown) { showToast((e as Error).message, 'error') }
     finally { setLoading(false) }
   }, [showToast])
@@ -307,7 +310,7 @@ export default function UsersPage() {
           onChange={e => setSearch(e.target.value)}
           className="border border-gray-200 rounded-xl px-3 py-2 text-sm w-60 focus:outline-none focus:border-blue-400"
         />
-        <Button onClick={() => setShowAdd(true)}>+ เพิ่มผู้ใช้งาน</Button>
+        {canCreate && <Button onClick={() => setShowAdd(true)}>+ เพิ่มผู้ใช้งาน</Button>}
       </div>
 
       {/* Table */}
@@ -318,7 +321,7 @@ export default function UsersPage() {
           <div className="flex flex-col items-center justify-center py-24 text-gray-400 gap-2">
             <span className="text-4xl">�</span>
             <span className="text-sm">{search ? 'ไม่พบผู้ใช้งานที่ค้นหา' : 'ยังไม่มีผู้ใช้งาน'}</span>
-            {!search && (
+            {!search && canCreate && (
               <button
                 onClick={() => setShowAdd(true)}
                 className="mt-2 text-sm text-blue-600 hover:underline"
@@ -357,13 +360,13 @@ export default function UsersPage() {
                         <div className="text-xs text-gray-400">{u.email || <span className="text-gray-300">—</span>}</div>
                       </td>
                       <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
-                        {canManage(u) ? (
+                        {u.can?.setRole ? (
                           <select
                             value={u.role}
                             onChange={e => handleChangeRole(u, e.target.value)}
                             className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
                           >
-                            {assignableRoles(me?.role, u).map(r => <option key={r} value={r}>{r}</option>)}
+                            {Array.from(new Set([u.role, ...u.can.assignableRoles.filter(r => r !== 'SUPER')])).map(r => <option key={r} value={r}>{r}</option>)}
                           </select>
                         ) : (
                           <RoleBadge role={u.role} />
@@ -372,17 +375,19 @@ export default function UsersPage() {
                       <td className="py-3 px-4"><StatusBadge status={u.status} /></td>
                       <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
                         <div className="flex gap-1.5">
-                          <button
-                            onClick={() => setEditTarget(u)}
-                            className="px-2.5 py-1 text-xs rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"
-                          >แก้ไข</button>
-                          {canManage(u) && (
+                          {u.can?.edit && (
+                            <button
+                              onClick={() => setEditTarget(u)}
+                              className="px-2.5 py-1 text-xs rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"
+                            >แก้ไข</button>
+                          )}
+                          {u.can?.setPassword && (
                             <button
                               onClick={() => setPwdTarget(u)}
                               className="px-2.5 py-1 text-xs rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
                             >รหัสผ่าน</button>
                           )}
-                          {canManage(u) && (
+                          {u.can?.setStatus && (
                             <button
                               onClick={() => handleToggleStatus(u)}
                               className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
@@ -392,7 +397,7 @@ export default function UsersPage() {
                               }`}
                             >{u.status === 'ACTIVE' ? 'ระงับ' : 'เปิดใช้'}</button>
                           )}
-                          {canManage(u) && (
+                          {u.can?.delete && (
                             <button
                               onClick={() => handleDelete(u)}
                               className="px-2.5 py-1 text-xs rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
