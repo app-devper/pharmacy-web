@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useCart } from '../../context/CartContext'
-import { SaleAttempt, submitSale } from '../../lib/pendingSales'
+import { useCheckout } from '../../hooks/useCheckout'
+import { kyFormsNeeded, oversoldLines, saleItemsOf, totalsOf } from '../../lib/checkout'
 import { useDrugs } from '../../hooks/useDrugs'
 import { useSettings } from '../../context/SettingsContext'
 import { useToast } from '../../hooks/useToast'
@@ -10,28 +11,27 @@ import CartDiscountModal from './CartDiscountModal'
 import SingleItemDiscountModal from './SingleItemDiscountModal'
 import ParkTabs from './ParkTabs'
 import OversellConfirmModal, { type OversellRow } from './OversellConfirmModal'
-import type { SaleResponse, CartItem, SaleItemInput } from '../../types/sale'
+import type { SaleResponse, CartItem } from '../../types/sale'
 import type { PriceTier } from '../../types/drug'
-import { itemBasePrice } from '../../context/CartContext'
 import { getTierLabel } from '../../utils/pricing'
 import type { CheckoutData } from './KySaleModal'
 
 interface Props {
   onCheckoutDone: (result: SaleResponse, items: CartItem[], tier: PriceTier) => void
-  onReloadDrugs: () => void
   onAddCustomer: () => void
   onKyRequired: (data: CheckoutData) => void
 }
 
-export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onKyRequired }: Props) {
+export default function Cart({ onCheckoutDone, onAddCustomer, onKyRequired }: Props) {
   const {
-    items, changeQty, setItemDiscount, clearCart, total,
+    items, changeQty, setItemDiscount, total,
     selectedCustomer, setSelectedCustomer,
     priceTier,
     discountInput, discountType, setDiscountInput, setDiscountType,
     activeSlot,
   } = useCart()
-  const { drugs, patchStocks } = useDrugs()
+  const { drugs } = useDrugs()
+  const { submit } = useCheckout()
   const { settings } = useSettings()
   const showToast = useToast()
   const [received, setReceived] = useState('')
@@ -39,27 +39,16 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
   const [showPicker, setShowPicker] = useState(false)
   const [showCartDiscount, setShowCartDiscount] = useState(false)
   const [discountItem, setDiscountItem] = useState<CartItem | null>(null)
-  // When a checkout needs oversell confirmation, pause and show the modal.
-  // On confirm we re-invoke the same checkout path with `allow_oversell:true`
-  // attached to the flagged lines.
-  const [oversellPending, setOversellPending] = useState<OversellRow[] | null>(null)
-  // One request id per sale, kept across retries (pharmacy-api ADR-0002).
-  const attempt = useRef(new SaleAttempt())
+  // When the cart sells more than is on hand, checkout pauses for the
+  // oversell confirmation, holding the received amount the cashier entered.
+  const [oversellPending, setOversellPending] = useState<{ rows: OversellRow[]; recv: number } | null>(null)
 
   // Reset received amount when switching park slots or cart is cleared
   useEffect(() => { setReceived('') }, [activeSlot])
   useEffect(() => { if (items.length === 0) setReceived('') }, [items.length])
 
-  // discount calculations
-  // total (from context) = grossSubtotal - totalItemDiscount (effective subtotal)
-  // All per-unit values are in BASE units resolved at the current tier.
-  const grossSubtotal = items.reduce((s, i) => s + itemBasePrice(i, priceTier) * i.qty, 0)
-  const totalItemDiscount = items.reduce((s, i) => s + (i.itemDiscount || 0) * i.qty, 0)
-  const discountValue = parseFloat(discountInput) || 0
-  const cartDiscountAmt = discountType === '%'
-    ? Math.min(total * discountValue / 100, total)
-    : Math.min(discountValue, total)
-  const netTotal = total - cartDiscountAmt
+  const { gross: grossSubtotal, itemDiscount: totalItemDiscount, cartDiscount: cartDiscountAmt, net: netTotal } =
+    totalsOf(items, priceTier, discountInput, discountType)
   const totalDiscount = totalItemDiscount + cartDiscountAmt
   const hasAnyDiscount = totalDiscount > 0
 
@@ -69,87 +58,18 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
     const recv = parseFloat(received)
     if (!Number.isFinite(recv)) { showToast('จำนวนเงินที่รับไม่ถูกต้อง', 'error'); return }
     if (recv < netTotal) { showToast('จำนวนเงินที่รับน้อยกว่ายอดสุทธิ', 'error'); return }
-    const saleItems = items.map(i => {
-      // Everything here is per BASE unit resolved at the cart's current tier.
-      // Backend revalidates against drug.prices so the client can't spoof.
-      const original = itemBasePrice(i, priceTier)
-      const itemDisc = i.itemDiscount || 0
-      const unit = i.selected_unit ?? ''
-      const factor = i.selected_unit_factor ?? 1
-      // Capture a FEFO snapshot when the drug list has decorated this item
-      // with next_lot. Read from the live `drugs` cache so a drug that just
-      // got a new lot via another path picks it up. When the sale runs (or
-      // later syncs, for offline bills), the backend compares this against
-      // whichever lot FEFO actually deducts from and sets lot_mismatch=true
-      // if they differ — useful for pharmacy audit trails on queued bills.
-      const live = drugs.find(d => d.id === i.id)
-      const snapshot = live?.next_lot
-        ? {
-            lot_id:      live.next_lot.lot_id,
-            lot_number:  live.next_lot.lot_number,
-            expiry_date: live.next_lot.expiry_date,
-          }
-        : undefined
-      return {
-        drug_id: i.id,
-        qty: i.qty,
-        price: Math.max(0, original - itemDisc),
-        original_price: original,
-        item_discount: itemDisc,
-        price_tier: priceTier,
-        ...(unit ? { unit, unit_factor: factor } : {}),
-        ...(snapshot ? { lot_snapshot: snapshot } : {}),
-      }
-    })
-
-    // Detect oversold lines — anything in the cart where the requested base
-    // qty exceeds the drug's local stock. We aggregate per drug (a cart may
-    // hold the same drug under multiple alt-units) and prompt once.
-    const shortByDrug = new Map<string, number>()
-    for (const si of saleItems) {
-      shortByDrug.set(si.drug_id, (shortByDrug.get(si.drug_id) ?? 0) + si.qty)
-    }
-    const oversoldRows: OversellRow[] = []
-    for (const [drugId, need] of shortByDrug) {
-      const d = drugs.find(x => x.id === drugId)
-      const stock = d?.stock ?? 0
-      if (need > Math.max(0, stock)) {
-        // Surface the first cart item's unit metadata for friendlier copy.
-        const firstItem = items.find(i => i.id === drugId)
-        oversoldRows.push({
-          drug_id: drugId,
-          drug_name: d?.name ?? firstItem?.name ?? drugId,
-          need,
-          available: stock,
-          unit: firstItem?.selected_unit,
-          unit_factor: firstItem?.selected_unit_factor,
-        })
-      }
-    }
-    if (oversoldRows.length > 0) {
-      // Pause checkout — modal takes over. Store context + tag the flagged
-      // lines with allow_oversell; runCheckout will pick up from here.
-      setOversellPending(oversoldRows)
+    const oversold = oversoldLines(items, drugs)
+    if (oversold.length > 0) {
+      setOversellPending({ rows: oversold, recv })
       return
     }
-
-    await runCheckout(saleItems, recv)
+    await runCheckout(new Set(), recv)
   }
 
-  // Extracted from handleCheckout so the oversell confirm flow can re-enter
-  // with the same payload after attaching allow_oversell flags. `recv` is
-  // passed explicitly (not re-parsed) to lock the received amount the user
-  // already approved.
-  const runCheckout = async (
-    saleItems: SaleItemInput[],
-    recv: number,
-  ) => {
-    // Check if any items need KY forms. If the shop opted out of compliance
-    // recording (Settings → ขย. → ข้ามบันทึก), skip the modal and go straight
-    // to the normal sale flow.
-    const needsKy = !settings.ky.skip_auto
-      && items.some(i => i.report_types?.some(t => ['ky10', 'ky11', 'ky12'].includes(t)))
-    if (needsKy) {
+  // allowOversell names the drugs the cashier confirmed selling short.
+  const runCheckout = async (allowOversell: ReadonlySet<string>, recv: number) => {
+    const saleItems = saleItemsOf(items, priceTier, drugs, allowOversell)
+    if (kyFormsNeeded(items, settings.ky.skip_auto).length > 0) {
       onKyRequired({
         cartItems: [...items],
         saleItems,
@@ -162,60 +82,19 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
       })
       return
     }
-
-    // Normal checkout
     setLoading(true)
     try {
-      // Snapshot the cart state BEFORE clearing — ReceiptModal needs the tier
-      // at checkout time, not whatever the cart resets to afterwards.
-      const snapshotItems = [...items]
-      const tierAtCheckout = priceTier
-      // Pre-compute optimistic stock deltas from the local drug cache. Used
-      // ONLY when the server doesn't return authoritative `stock_updates`
-      // (i.e. offline path). Sum qty × factor per drug → subtract from current
-      // local stock. Clamped to 0 so late-arriving offline sales don't render
-      // negative counts.
-      const offlinePatches = (() => {
-        const byDrug = new Map<string, number>()
-        for (const it of saleItems) {
-          // qty is already in base units (SaleItemInput.qty); unit_factor only
-          // describes how the line was displayed.
-          byDrug.set(it.drug_id, (byDrug.get(it.drug_id) ?? 0) + it.qty)
-        }
-        const out: { drug_id: string; new_stock: number }[] = []
-        for (const [id, used] of byDrug) {
-          const d = drugs.find(x => x.id === id)
-          if (!d) continue
-          out.push({ drug_id: id, new_stock: Math.max(0, d.stock - used) })
-        }
-        return out
-      })()
-
-      const submitted = await submitSale(attempt.current.intent({
+      // The receipt shows the cart as it was, at the tier it was sold at.
+      const soldItems = [...items]
+      const soldTier = priceTier
+      const result = await submit({
         items: saleItems,
         discount: cartDiscountAmt || undefined,
         received: recv,
         customer_id: selectedCustomer?.id,
-      }))
-      attempt.current.done()
-      const result = submitted.status === 'confirmed' ? submitted.sale : submitted.receipt
-      clearCart()
+      })
       setReceived('')
-      // Stock reconciliation:
-      //   • Online → server returns `stock_updates` (authoritative).
-      //   • Queued (offline, or the server could not confirm the session) →
-      //     no server response; apply optimistic patches so the UI
-      //     reflects the sale immediately. Real values get reconciled when
-      //     the queue syncs (useOfflineSync → onReloadDrugs there, or the
-      //     user returns to the page).
-      if (result.stock_updates && result.stock_updates.length > 0) {
-        patchStocks(result.stock_updates)
-      } else if (submitted.status === 'pending') {
-        patchStocks(offlinePatches)
-      } else {
-        onReloadDrugs()
-      }
-      onCheckoutDone(result, snapshotItems, tierAtCheckout)
+      onCheckoutDone(result, soldItems, soldTier)
     } catch (e: unknown) {
       showToast((e as Error).message || 'เกิดข้อผิดพลาด', 'error')
     } finally {
@@ -328,42 +207,12 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
       )}
       {oversellPending && (
         <OversellConfirmModal
-          rows={oversellPending}
+          rows={oversellPending.rows}
           onCancel={() => setOversellPending(null)}
           onConfirm={() => {
-            // Rebuild the sale items with allow_oversell toggled on for any
-            // line whose drug shows up in the pending rows. Re-reading the
-            // live cart here keeps qty/discount edits that might have
-            // happened while the modal was open (edge case).
-            const overDrugs = new Set(oversellPending.map(r => r.drug_id))
-            const rebuilt: SaleItemInput[] = items.map(i => {
-              const original = itemBasePrice(i, priceTier)
-              const itemDisc = i.itemDiscount || 0
-              const unit = i.selected_unit ?? ''
-              const factor = i.selected_unit_factor ?? 1
-              const live = drugs.find(d => d.id === i.id)
-              const snapshot = live?.next_lot
-                ? {
-                    lot_id:      live.next_lot.lot_id,
-                    lot_number:  live.next_lot.lot_number,
-                    expiry_date: live.next_lot.expiry_date,
-                  }
-                : undefined
-              return {
-                drug_id: i.id,
-                qty: i.qty,
-                price: Math.max(0, original - itemDisc),
-                original_price: original,
-                item_discount: itemDisc,
-                price_tier: priceTier,
-                ...(unit ? { unit, unit_factor: factor } : {}),
-                ...(snapshot ? { lot_snapshot: snapshot } : {}),
-                ...(overDrugs.has(i.id) ? { allow_oversell: true } : {}),
-              }
-            })
+            const { rows, recv } = oversellPending
             setOversellPending(null)
-            const recv = parseFloat(received) || 0
-            runCheckout(rebuilt, recv)
+            runCheckout(new Set(rows.map(r => r.drug_id)), recv)
           }}
         />
       )}
