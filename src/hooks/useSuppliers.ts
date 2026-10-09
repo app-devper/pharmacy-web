@@ -1,32 +1,9 @@
-import { useState, useEffect } from 'react'
-import type { Supplier } from '../types/supplier'
 import { getSuppliers } from '../api/suppliers'
+import { cachedList } from './cachedList'
 
-let cachedSuppliers: Supplier[] = []
+const useSupplierList = cachedList(getSuppliers)
 
 export function useSuppliers() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>(cachedSuppliers)
-  const [loading, setLoading] = useState(cachedSuppliers.length === 0)
-
-  const load = async () => {
-    setLoading(true)
-    try {
-      const data = await getSuppliers()
-      cachedSuppliers = data
-      setSuppliers(data)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (cachedSuppliers.length === 0) load()
-  }, [])
-
-  const reload = () => {
-    cachedSuppliers = []
-    load()
-  }
-
+  const { items: suppliers, loading, reload } = useSupplierList()
   return { suppliers, loading, reload }
 }
