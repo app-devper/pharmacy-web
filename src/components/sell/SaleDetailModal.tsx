@@ -7,7 +7,7 @@ import type { Sale, SaleItem, DrugReturn } from '../../types/sale'
 import Spinner from '../ui/Spinner'
 import VoidSaleModal from './VoidSaleModal'
 import ReturnSaleModal from './ReturnSaleModal'
-import { useIsAdmin } from '../../hooks/useIsAdmin'
+import { useCan } from '../../hooks/useCan'
 import { useSettings } from '../../context/SettingsContext'
 import { getTierLabel } from '../../utils/pricing'
 
@@ -19,7 +19,7 @@ interface Props {
 
 export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props) {
   const showToast = useToast()
-  const isAdmin = useIsAdmin()
+  const canVoid = useCan('void_bill')
   const { settings } = useSettings()
   const [items, setItems]     = useState<SaleItem[]>([])
   const [returns, setReturns] = useState<DrugReturn[]>([])
@@ -212,7 +212,7 @@ export default function SaleDetailModal({ sale, onClose, onSaleChanged }: Props)
             <div className="flex gap-2 pt-2">
               {!sale.voided && (
                 <>
-                  {isAdmin && (
+                  {canVoid && (
                     <button
                       onClick={() => setShowVoid(true)}
                       className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"

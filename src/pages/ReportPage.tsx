@@ -12,7 +12,7 @@ import RecentBills from '../components/report/RecentBills'
 import EodModal from '../components/report/EodModal'
 import DayPicker from '../components/ui/DayPicker'
 import Button from '../components/ui/Button'
-import { useIsAdmin } from '../hooks/useIsAdmin'
+import { useCan } from '../hooks/useCan'
 import Spinner from '../components/ui/Spinner'
 import { monthBangkok } from '../utils/date'
 
@@ -23,8 +23,8 @@ const DAY_OPTIONS = [7, 14, 30]
  * operational slow-drugs view (shared role policy, KMP ADR-0004).
  */
 export default function ReportPage() {
-  const isAdmin = useIsAdmin()
-  return isAdmin ? <AdminReport /> : <ManagerReport />
+  const financial = useCan('view_financial_report')
+  return financial ? <AdminReport /> : <ManagerReport />
 }
 
 function ManagerReport() {
