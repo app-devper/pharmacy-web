@@ -19,7 +19,7 @@ export default function DrugTable({ drugs, onReload }: Props) {
   const navigate = useNavigate()
   const isAdmin = useIsAdmin()
   const isManager = useIsManager()
-  const { patchStocks } = useDrugs()
+  const { stockChanged } = useDrugs()
   const [lotDrug, setLotDrug]       = useState<Drug | null>(null)
   const [adjustDrug, setAdjustDrug] = useState<Drug | null>(null)
   const [logDrug, setLogDrug]       = useState<Drug | null>(null)
@@ -45,7 +45,7 @@ export default function DrugTable({ drugs, onReload }: Props) {
   const handleAdjusted = (updated: Drug) => {
     // Sync shared cache so SellPage (and anywhere else using useDrugs) reflects
     // the new stock immediately — no need for localOverrides anymore.
-    patchStocks([{ drug_id: updated.id, new_stock: updated.stock }])
+    stockChanged([{ drug_id: updated.id, new_stock: updated.stock }])
     setAdjustDrug(null)
     if (logDrug?.id === updated.id) setLogDrug(updated)
   }

@@ -12,7 +12,7 @@ import { useDrugs } from '../hooks/useDrugs'
 
 export default function ImportPage() {
   const showToast = useToast()
-  const { reload: reloadDrugs } = useDrugs()
+  const { stockChanged } = useDrugs()
   const [orders, setOrders] = useState<PurchaseOrderSummary[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -51,7 +51,7 @@ export default function ImportPage() {
       reload()
       // Confirming creates DrugLots + bumps drug.stock → refresh shared drug cache
       // so SellPage/StockPage reflect the new totals without a manual refresh.
-      reloadDrugs()
+      stockChanged()
     } catch (e) { showToast((e as Error).message, 'error') }
   }
 

@@ -16,13 +16,13 @@ export default function StockPage() {
   const isAdmin = useIsAdmin()
   const isManager = useIsManager()
   // Shared drug cache (DrugsContext). Switching between Sell/Stock no longer refetches.
-  const { drugs, loading, reload } = useDrugs()
+  const { drugs, loading, stockChanged } = useDrugs()
   const [showImport, setShowImport] = useState(false)
   const [showReorder, setShowReorder] = useState(false)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
 
-  const load = () => { reload() }
+  const load = () => { stockChanged() }
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
