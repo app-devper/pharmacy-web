@@ -9,12 +9,13 @@ import ReorderSuggestionsModal from '../components/stock/ReorderSuggestionsModal
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import { exportStockXlsx } from '../utils/exportXlsx'
-import { useIsAdmin, useIsManager } from '../hooks/useIsAdmin'
+import { useCan } from '../hooks/useCan'
 
 export default function StockPage() {
   const navigate = useNavigate()
-  const isAdmin = useIsAdmin()
-  const isManager = useIsManager()
+  const canEditDrug = useCan('edit_drug')
+  const canExport = useCan('export_stock')
+  const canReorder = useCan('reorder')
   // Shared drug cache (DrugsContext). Switching between Sell/Stock no longer refetches.
   const { drugs, loading, reload } = useDrugs()
   const [showImport, setShowImport] = useState(false)
@@ -57,12 +58,14 @@ export default function StockPage() {
             <option value="">ทุกประเภท</option>
             {DRUG_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
-          {isAdmin && (
+          {canExport && (
+            <Button variant="secondary" onClick={() => exportStockXlsx(drugs)}
+              className="border-green-300 text-green-700 hover:bg-green-50">
+              Excel
+            </Button>
+          )}
+          {canEditDrug && (
             <>
-              <Button variant="secondary" onClick={() => exportStockXlsx(drugs)}
-                className="border-green-300 text-green-700 hover:bg-green-50">
-                Excel
-              </Button>
               <Button variant="secondary" onClick={() => setShowImport(true)}
                 className="border-purple-300 text-purple-700 hover:bg-purple-50">
                 นำเข้า Excel
@@ -70,7 +73,7 @@ export default function StockPage() {
               <Button onClick={() => navigate('/stock/new')}>+ เพิ่มยา</Button>
             </>
           )}
-          {isManager && (
+          {canReorder && (
             <Button variant="secondary" onClick={() => setShowReorder(true)}
               className="border-indigo-300 text-indigo-700 hover:bg-indigo-50">
               🔄 แนะนำสั่งซื้อ
