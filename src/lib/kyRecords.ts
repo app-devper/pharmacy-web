@@ -1,5 +1,5 @@
 import { addKy10, addKy11, addKy12 } from '../api/kyforms'
-import { isTemporaryOutage } from '../api/client'
+import { isTemporaryFailure } from '../api/client'
 import type { Ky10Input, Ky11Input, Ky12Input } from '../types/kyforms'
 
 /**
@@ -17,14 +17,14 @@ export const kyRecordLabel = (r: KyRecord) => `ขย.${r.form.slice(2)}: ${r.da
 export interface KySubmitResult {
   /** Records the server refused; they will not succeed by retrying as-is. */
   failed: KyRecord[]
-  /** Records not sent because the network or identity check went down. */
+  /** Records not sent because delivery failed temporarily (see isTemporaryFailure). */
   unsent: KyRecord[]
   /** The temporary outage that stopped sending, if any. */
   outage: unknown
 }
 
 /**
- * Send a confirmed bill's KY records. Stops at the first temporary outage and
+ * Send a confirmed bill's KY records. Stops at the first temporary failure and
  * returns the rest as `unsent`, so the caller can keep them with the bill.
  */
 export async function submitKyRecords(saleId: string | undefined, records: KyRecord[]): Promise<KySubmitResult> {
@@ -33,7 +33,7 @@ export async function submitKyRecords(saleId: string | undefined, records: KyRec
     try {
       await post(records[i], saleId)
     } catch (e) {
-      if (isTemporaryOutage(e)) return { failed, unsent: records.slice(i), outage: e }
+      if (isTemporaryFailure(e)) return { failed, unsent: records.slice(i), outage: e }
       failed.push(records[i])
     }
   }
