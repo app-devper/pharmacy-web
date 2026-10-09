@@ -17,7 +17,7 @@ export default function SalesHistoryPage() {
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState<Sale | null>(null)
   const showToast = useToast()
-  const { reload: reloadDrugs } = useDrugs()
+  const { stockChanged } = useDrugs()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -148,7 +148,7 @@ export default function SalesHistoryPage() {
             // so SellPage/StockPage don't show stale numbers.
             setSelected(null)
             load()
-            reloadDrugs()
+            stockChanged()
           }}
         />
       )}

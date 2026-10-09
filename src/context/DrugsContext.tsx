@@ -7,10 +7,15 @@ import { useAuth } from './AuthContext'
 interface DrugsContextValue {
   drugs: Drug[]
   loading: boolean
-  /** Force a full re-fetch from backend. */
-  reload: () => Promise<void>
-  /** Patch local stock values without a re-fetch. Use after a sale. */
-  patchStocks: (updates: StockUpdate[]) => void
+  /**
+   * Tell the cache that stock changed. With `updates` (a confirmed sale's
+   * stock, or the estimate for a pending one) the list is patched in place;
+   * without, it is fetched again from pharmacy-api, which owns stock
+   * (KMP ADR-0003). Every view that shows stock follows `stockVersion`.
+   */
+  stockChanged: (updates?: StockUpdate[]) => void
+  /** Bumped on every stockChanged; views that read stock elsewhere (lots, expiry) refresh on it. */
+  stockVersion: number
 }
 
 const Ctx = createContext<DrugsContextValue | null>(null)
@@ -20,14 +25,16 @@ const Ctx = createContext<DrugsContextValue | null>(null)
  * SellPage, StockPage, ImportFormModal, KyDrugSelect, etc. so navigating
  * between pages does NOT trigger a re-fetch.
  *
- * Invalidation:
- *  - `reload()` — after drug add/update/import/adjust
- *  - `patchStocks(updates)` — after a sale (uses SaleResponse.stock_updates)
+ * Every command that changes stock (sale, void, return, goods receipt,
+ * count, adjustment, drug add/edit/import, pending-sale sync) ends with
+ * `stockChanged`, which decides between a patch and a re-fetch and lets the
+ * dependent views (expiry alert) know.
  */
 export function DrugsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [drugs, setDrugs] = useState<Drug[]>([])
   const [loading, setLoading] = useState(false)
+  const [stockVersion, setStockVersion] = useState(0)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -66,8 +73,14 @@ export function DrugsProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const stockChanged = useCallback((updates?: StockUpdate[]) => {
+    if (updates && updates.length > 0) patchStocks(updates)
+    else reload()
+    setStockVersion(v => v + 1)
+  }, [patchStocks, reload])
+
   return (
-    <Ctx.Provider value={{ drugs, loading, reload, patchStocks }}>
+    <Ctx.Provider value={{ drugs, loading, stockChanged, stockVersion }}>
       {children}
     </Ctx.Provider>
   )

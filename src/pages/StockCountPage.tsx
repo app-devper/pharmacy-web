@@ -14,7 +14,7 @@ import { fmtDateTime } from '../utils/formatters'
 type CountInputs = Record<string, string>
 
 export default function StockCountPage() {
-  const { drugs, loading, reload } = useDrugs()
+  const { drugs, loading, stockChanged } = useDrugs()
   const showToast = useToast()
   const [counts, setCounts] = useState<StockCount[]>([])
   const [countInputs, setCountInputs] = useState<CountInputs>({})
@@ -123,7 +123,7 @@ export default function StockCountPage() {
       showToast(`บันทึก ${saved.count_no} สำเร็จ`, 'success')
       setCounts(prev => [saved, ...prev].slice(0, 20))
       clearDraft()
-      await reload()
+      stockChanged()
     } catch (e) {
       showToast((e as Error).message, 'error')
     } finally {
