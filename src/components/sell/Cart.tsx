@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useCart } from '../../context/CartContext'
-import { createSale, isQueuedReceipt } from '../../api/sales'
+import { SaleAttempt, submitSale } from '../../lib/pendingSales'
 import { useDrugs } from '../../hooks/useDrugs'
 import { useSettings } from '../../context/SettingsContext'
 import { useToast } from '../../hooks/useToast'
@@ -43,6 +43,8 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
   // On confirm we re-invoke the same checkout path with `allow_oversell:true`
   // attached to the flagged lines.
   const [oversellPending, setOversellPending] = useState<OversellRow[] | null>(null)
+  // One request id per sale, kept across retries (pharmacy-api ADR-0002).
+  const attempt = useRef(new SaleAttempt())
 
   // Reset received amount when switching park slots or cart is cleared
   useEffect(() => { setReceived('') }, [activeSlot])
@@ -189,12 +191,14 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
         return out
       })()
 
-      const result = await createSale({
+      const submitted = await submitSale(attempt.current.intent({
         items: saleItems,
         discount: cartDiscountAmt || undefined,
         received: recv,
         customer_id: selectedCustomer?.id,
-      })
+      }))
+      attempt.current.done()
+      const result = submitted.status === 'confirmed' ? submitted.sale : submitted.receipt
       clearCart()
       setReceived('')
       // Stock reconciliation:
@@ -206,7 +210,7 @@ export default function Cart({ onCheckoutDone, onReloadDrugs, onAddCustomer, onK
       //     user returns to the page).
       if (result.stock_updates && result.stock_updates.length > 0) {
         patchStocks(result.stock_updates)
-      } else if (isQueuedReceipt(result)) {
+      } else if (submitted.status === 'pending') {
         patchStocks(offlinePatches)
       } else {
         onReloadDrugs()

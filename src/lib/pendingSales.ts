@@ -1,12 +1,19 @@
-import { ApiError, isTemporaryOutage } from '../api/client'
-import { _createSaleRaw, abandonQueued } from '../api/sales'
+import { isTemporaryFailure } from '../api/client'
+import { abandonQueued, postSale } from '../api/salesTransport'
+import type { SaleInput, SaleResponse } from '../types/sale'
 import { kyRecordLabel, submitKyRecords } from './kyRecords'
-import { getPendingSales, putPendingSale, removePendingSale, type PendingSale } from './offlineQueue'
+import { enqueueSale, getPendingSales, putPendingSale, removePendingSale, type PendingSale } from './offlineQueue'
+import { newRequestId } from './requestId'
 
 /**
- * Sales kept in this browser until the server records them (KMP ADR-0006,
- * ADR-0010; pharmacy-api ADR-0009). This module owns every state a pending
- * sale can be in and every way out of it:
+ * Sale submission: turning a sale intent into a recorded Sale or a Pending
+ * sale kept in this browser until the server records it (KMP ADR-0006,
+ * ADR-0010; pharmacy-api ADR-0002, ADR-0009). Checkout (`submitSale`) and
+ * replay (`syncAll`, `retry`) deliver through the same transport, classify a
+ * failure the same way (`isTemporaryFailure`), and keep one request id per
+ * sale, so a sale is never recorded twice and never lost.
+ *
+ * A pending sale's states and every way out of them:
  *
  * - pending: not delivered yet (network, identity outage, 5xx, 401, 403);
  *   `syncAll` retries it;
@@ -35,6 +42,72 @@ export interface SyncSummary {
 }
 
 type Delivery = 'recorded' | 'refused' | 'still_pending'
+
+/** A sale with its request identity (see SaleAttempt). */
+export type SaleIntent = SaleInput & { client_request_id: string }
+
+/** What became of a submitted sale. A refusal is thrown (ApiError). */
+export type Submitted =
+  | { status: 'confirmed'; sale: SaleResponse }
+  /** Kept in this browser; `receipt` is what to show the customer now. */
+  | { status: 'pending'; receipt: SaleResponse }
+
+const PENDING_BILL_PREFIX = 'OFFLINE-'
+
+/**
+ * Submit a sale from checkout. Offline, or when the delivery fails in a way
+ * that says nothing about the sale (network, identity outage, 5xx, 401, 403),
+ * it is kept pending and replayed by syncAll under the same request id;
+ * the server returns the recorded sale if it had recorded it already. Any
+ * other failure is the server refusing the sale, and is thrown.
+ */
+export async function submitSale(intent: SaleIntent): Promise<Submitted> {
+  if (!navigator.onLine) return keepPending(intent)
+  try {
+    return { status: 'confirmed', sale: await postSale(intent) }
+  } catch (e) {
+    if (isTemporaryFailure(e)) return keepPending(intent)
+    throw e
+  }
+}
+
+async function keepPending(intent: SaleIntent): Promise<Submitted> {
+  const id    = await enqueueSale(intent)
+  const total = Math.max(0, intent.items.reduce((s, i) => s + i.price * i.qty, 0) - (intent.discount ?? 0))
+  changed()
+  return {
+    status: 'pending',
+    receipt: {
+      bill_no:  `${PENDING_BILL_PREFIX}${id.slice(-8)}`,
+      total,
+      discount: intent.discount ?? 0,
+      change:   Math.max(0, intent.received - total),
+    },
+  }
+}
+
+/**
+ * One request id per sale. A checkout keeps one SaleAttempt; `intent` gives
+ * the sale its id, the same one for every retry of the same content, and a
+ * new one when the content changes (the server refuses a reused id with
+ * different content). `done` forgets it once the sale is recorded or kept
+ * pending, so the next sale gets its own.
+ */
+export class SaleAttempt {
+  private current: { key: string; id: string } | null = null
+
+  intent(data: SaleInput): SaleIntent {
+    const { client_request_id: _ignored, ...content } = data
+    void _ignored
+    const key = JSON.stringify(content)
+    if (this.current?.key !== key) this.current = { key, id: newRequestId('sale') }
+    return { ...content, client_request_id: this.current.id }
+  }
+
+  done(): void {
+    this.current = null
+  }
+}
 
 // Every hook showing pending sales refreshes when any of them changes.
 const listeners = new Set<() => void>()
@@ -164,7 +237,7 @@ async function deliver(entry: Readable): Promise<[Delivery, unknown]> {
   let saleId: string | undefined
   let billNo: string
   try {
-    const sale = await _createSaleRaw({ ...entry.data, client_request_id: entry.data.client_request_id || entry.id })
+    const sale = await postSale({ ...entry.data, client_request_id: entry.data.client_request_id || entry.id })
     saleId = sale.id
     billNo = sale.bill_no
   } catch (e) {
@@ -196,14 +269,4 @@ async function deliver(entry: Readable): Promise<[Delivery, unknown]> {
     error: `บิลบันทึกแล้ว แต่ ขย. ถูกปฏิเสธ: ${sent.failed.map(kyRecordLabel).join(', ')}`,
   })
   return ['refused', null]
-}
-
-/**
- * A failure that says nothing about the sale itself: the server was not
- * reached, could not decide, or did not accept the session.
- */
-export function isTemporaryFailure(e: unknown): boolean {
-  if (isTemporaryOutage(e)) return true
-  if (e instanceof ApiError) return e.status === 401 || e.status === 403 || e.status >= 500
-  return true
 }
