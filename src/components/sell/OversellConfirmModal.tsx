@@ -2,17 +2,9 @@ import { useState } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 
-export interface OversellRow {
-  drug_id: string
-  drug_name: string
-  /** How many base units the cashier wants to sell. */
-  need: number
-  /** Current stock in base units (may be 0 or negative already). */
-  available: number
-  /** Alt unit display label ("" = base) and factor, for friendlier copy. */
-  unit?: string
-  unit_factor?: number
-}
+import type { OversoldLine } from '../../lib/checkout'
+
+export type OversellRow = OversoldLine
 
 interface Props {
   rows: OversellRow[]
@@ -23,7 +15,7 @@ interface Props {
 /**
  * Confirmation shown right before checkout when at least one line needs more
  * stock than the drug has on hand. Splitting this out of Cart keeps the main
- * checkout logic linear — if the user confirms, the caller re-runs createSale
+ * checkout logic linear — if the user confirms, the caller re-runs checkout
  * with `allow_oversell: true` attached to the over-stocked lines.
  *
  * Design note: we require an explicit acknowledge checkbox (not just a
