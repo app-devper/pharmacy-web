@@ -3,6 +3,7 @@ import type { ExpiringLot } from '../types/lot'
 import { getExpiringLots, getExpiredLots, writeoffLots } from '../api/lots'
 import { exportExpiryXlsx } from '../utils/exportXlsx'
 import { useToast } from '../hooks/useToast'
+import { useDrugs } from '../hooks/useDrugs'
 import { fmtDateThai } from '../utils/formatters'
 import Spinner from '../components/ui/Spinner'
 
@@ -33,6 +34,7 @@ function statusBadge(daysLeft: number) {
 
 export default function ExpiryPage() {
   const showToast = useToast()
+  const { stockChanged } = useDrugs()
   const [activeTab, setActiveTab] = useState(1)          // default: 60 วัน
   const [data, setData]           = useState<ExpiringLot[]>([])
   const [loading, setLoading]     = useState(true)
@@ -92,6 +94,7 @@ export default function ExpiryPage() {
     try {
       const res = await writeoffLots(ids)
       showToast(`เขียนทิ้งแล้ว ${res.written_off} รายการ`, 'success')
+      stockChanged()
       fetchData()
     } catch (e) {
       showToast((e as Error).message, 'error')

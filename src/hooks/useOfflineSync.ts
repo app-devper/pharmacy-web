@@ -18,7 +18,7 @@ import { listPendingSales, onPendingSalesChange, syncAll, type PendingEntry } fr
 export function useOfflineSync() {
   const online    = useOnlineStatus()
   const showToast = useToast()
-  const { reload: reloadDrugs } = useDrugs()
+  const { stockChanged } = useDrugs()
   const [entries, setEntries] = useState<PendingEntry[]>([])
   const [syncing, setSyncing] = useState(false)
 
@@ -36,7 +36,7 @@ export function useOfflineSync() {
     setSyncing(true)
     try {
       const { recorded, refused, outage } = await syncAll()
-      if (recorded > 0) reloadDrugs()
+      if (recorded > 0) stockChanged()
       if (recorded) showToast(`ซิงค์สำเร็จ ${recorded} รายการ`, 'success')
       if (refused)  showToast(`server ไม่รับ ${refused} รายการ — ตรวจสอบที่หน้ารายการค้างซิงค์`, 'error')
       if (outage === 'network')  showToast('เครือข่ายขัดข้อง — ระบบจะลองซิงค์อีกครั้งเมื่อกลับมาออนไลน์', 'info')
@@ -46,7 +46,7 @@ export function useOfflineSync() {
     } finally {
       setSyncing(false)
     }
-  }, [reloadDrugs, showToast])
+  }, [stockChanged, showToast])
 
   // Auto-sync as soon as we come back online
   useEffect(() => {

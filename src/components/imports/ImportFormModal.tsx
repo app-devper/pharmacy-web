@@ -42,7 +42,7 @@ function toAPIItems(rows: POItemInput[]): POItem[] {
 
 export default function ImportFormModal({ existingId, onClose, onSaved }: Props) {
   const showToast = useToast()
-  const { drugs } = useDrugs()
+  const { drugs, stockChanged } = useDrugs()
 
   const [header, setHeader] = useState({
     supplier: '', invoice_no: '', receive_date: getToday(), notes: '',
@@ -162,6 +162,7 @@ export default function ImportFormModal({ existingId, onClose, onSaved }: Props)
         await updateImport(poId, buildInput())
       }
       await confirmImport(poId!)
+      stockChanged()
       showToast(`รับสินค้าสำเร็จ ${items.length} รายการ`)
       onSaved()
     } catch (e: unknown) { showToast((e as Error).message, 'error') }

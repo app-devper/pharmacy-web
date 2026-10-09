@@ -239,8 +239,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => {
     resetLive()
-    // แจ้ง LowStockAlert + ExpiryAlert ให้ refresh
-    window.dispatchEvent(new CustomEvent('pharmacy:stock-changed'))
   }
 
   const snapshotLive = (): ParkedSlot | null => {

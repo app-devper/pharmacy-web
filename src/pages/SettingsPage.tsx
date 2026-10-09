@@ -15,7 +15,7 @@ type Tab = 'store' | 'receipt' | 'stock' | 'pharmacist' | 'ky' | 'import'
 export default function SettingsPage() {
   const isAdmin = useIsAdmin()
   const { settings, loading, setSettings } = useSettings()
-  const { reload: reloadDrugs } = useDrugs()
+  const { stockChanged } = useDrugs()
   const showToast = useToast()
 
   const [tab, setTab] = useState<Tab>('store')
@@ -435,7 +435,7 @@ export default function SettingsPage() {
       {showImportJson && (
         <ImportJsonModal
           onClose={() => setShowImportJson(false)}
-          onImported={() => { reloadDrugs() }}
+          onImported={() => { stockChanged() }}
         />
       )}
     </div>

@@ -12,7 +12,7 @@ import type { SaleInput, SaleResponse } from '../types/sale'
  * pending) and the cart is cleared. A refusal is thrown and the cart kept.
  */
 export function useCheckout() {
-  const { drugs, patchStocks, reload } = useDrugs()
+  const { drugs, stockChanged } = useDrugs()
   const { clearCart } = useCart()
   const attempt = useRef(new SaleAttempt())
 
@@ -20,11 +20,10 @@ export function useCheckout() {
     const submitted = await submitSale(attempt.current.intent(input))
     attempt.current.done()
     const catchUp = stockCatchUp(submitted, input.items, drugs)
-    if (catchUp.kind === 'patch') patchStocks(catchUp.updates)
-    else reload()
+    stockChanged(catchUp.kind === 'patch' ? catchUp.updates : undefined)
     clearCart()
     return submitted.status === 'confirmed' ? submitted.sale : submitted.receipt
-  }, [drugs, patchStocks, reload, clearCart])
+  }, [drugs, stockChanged, clearCart])
 
   return { submit }
 }
