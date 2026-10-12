@@ -34,9 +34,21 @@ export function looksLikeNetworkError(e: unknown): boolean {
   )
 }
 
-/** True when a request failed for a reason worth retrying later, not because the server rejected it. */
+/** True when the server was not reached or could not confirm the session. */
 export function isTemporaryOutage(e: unknown): boolean {
   return e instanceof IdentityUnavailableError || looksLikeNetworkError(e)
+}
+
+/**
+ * True when a commercial command's delivery failed in a way that says nothing
+ * about the command itself (KMP ADR-0010): the server was not reached, could
+ * not decide (5xx), or did not accept the session (401, 403). Keep it and
+ * deliver it again later. Any other failure is the server refusing it.
+ */
+export function isTemporaryFailure(e: unknown): boolean {
+  if (isTemporaryOutage(e)) return true
+  if (e instanceof ApiError) return e.status === 401 || e.status === 403 || e.status >= 500
+  return true
 }
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {

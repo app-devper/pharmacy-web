@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { createSale } from '../../api/sales'
+import { useRef, useState } from 'react'
+import { SaleAttempt, submitSale } from '../../lib/pendingSales'
 import { useCart } from '../../context/CartContext'
 import { useSettings } from '../../context/SettingsContext'
 import { useToast } from '../../hooks/useToast'
@@ -48,6 +48,8 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
   const { settings } = useSettings()
   const showToast = useToast()
   const [saving, setSaving] = useState(false)
+  // One request id per sale, kept across retries (pharmacy-api ADR-0002).
+  const attempt = useRef(new SaleAttempt())
 
   // Detect which forms are needed
   const ky10Items = data.cartItems.filter(i => i.report_types?.includes('ky10'))
@@ -96,15 +98,16 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
       // The bill and its KY records go together: if the bill is queued, or
       // the connection drops before the records are sent, they wait in the
       // offline queue with the bill.
-      const result = await createSale({
+      const submitted = await submitSale(attempt.current.intent({
         items: data.saleItems,
         discount: data.discountAmt || undefined,
         received: data.received,
         customer_id: data.customer_id,
         ky_skipped_by_cashier: withKy ? undefined : true,
         ky: withKy ? buildCapture() : undefined,
-      })
-
+      }))
+      attempt.current.done()
+      const result = submitted.status === 'confirmed' ? submitted.sale : submitted.receipt
 
       clearCart()
       setSelectedCustomer(null)
