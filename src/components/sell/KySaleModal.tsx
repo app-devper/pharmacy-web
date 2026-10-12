@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
-import { SaleAttempt, submitSale } from '../../lib/pendingSales'
+import { useState } from 'react'
+import { useCheckout } from '../../hooks/useCheckout'
+import { kyFormsNeeded, missingKyFields } from '../../lib/checkout'
 import { useCart } from '../../context/CartContext'
 import { useSettings } from '../../context/SettingsContext'
 import { useToast } from '../../hooks/useToast'
@@ -44,14 +45,15 @@ function Field({ label, required, children }: { label: string; required?: boolea
 const inp = 'w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400'
 
 export default function KySaleModal({ data, onDone, onCancel }: Props) {
-  const { clearCart, setSelectedCustomer } = useCart()
+  const { setSelectedCustomer } = useCart()
+  const { submit } = useCheckout()
   const { settings } = useSettings()
   const showToast = useToast()
   const [saving, setSaving] = useState(false)
-  // One request id per sale, kept across retries (pharmacy-api ADR-0002).
-  const attempt = useRef(new SaleAttempt())
 
-  // Detect which forms are needed
+  // The forms this sale needs (checkout decides; the modal only opens when
+  // the shop records KY).
+  const forms = kyFormsNeeded(data.cartItems, false)
   const ky10Items = data.cartItems.filter(i => i.report_types?.includes('ky10'))
   const ky11Items = data.cartItems.filter(i => i.report_types?.includes('ky11'))
   const ky12Items = data.cartItems.filter(i => i.report_types?.includes('ky12'))
@@ -93,23 +95,25 @@ export default function KySaleModal({ data, onDone, onCancel }: Props) {
   })
 
   const doCheckout = async (withKy: boolean) => {
+    const capture = withKy ? buildCapture() : undefined
+    const missing = capture ? missingKyFields(capture, forms) : []
+    if (missing.length > 0) {
+      showToast(`กรุณากรอกข้อมูลที่จำเป็น: ${missing.join(', ')}`, 'error')
+      return
+    }
     setSaving(true)
     try {
       // The bill and its KY records go together: if the bill is queued, or
       // the connection drops before the records are sent, they wait in the
       // offline queue with the bill.
-      const submitted = await submitSale(attempt.current.intent({
+      const result = await submit({
         items: data.saleItems,
         discount: data.discountAmt || undefined,
         received: data.received,
         customer_id: data.customer_id,
         ky_skipped_by_cashier: withKy ? undefined : true,
-        ky: withKy ? buildCapture() : undefined,
-      }))
-      attempt.current.done()
-      const result = submitted.status === 'confirmed' ? submitted.sale : submitted.receipt
-
-      clearCart()
+        ky: capture,
+      })
       setSelectedCustomer(null)
       onDone(result, data.cartItems, data.priceTier)
     } catch (e: unknown) {
