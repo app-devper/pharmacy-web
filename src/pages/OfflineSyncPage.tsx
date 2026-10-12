@@ -4,7 +4,7 @@ import Modal from '../components/ui/Modal'
 import { useAuth } from '../context/AuthContext'
 import { useOfflineSync } from '../hooks/useOfflineSync'
 import { useToast } from '../hooks/useToast'
-import { hasRole } from '../lib/roles'
+import { can } from '../lib/access'
 import { abandon, discardDamaged, exportEntry, retry, type PendingEntry } from '../lib/pendingSales'
 
 function saleTotal(item: PendingEntry) {
@@ -27,7 +27,7 @@ type Resolving =
 export default function OfflineSyncPage() {
   const showToast = useToast()
   const { user } = useAuth()
-  const canResolve = hasRole(user?.role, 'ADMIN')
+  const canResolve = can(user?.role, 'resolve_pending_sale')
   const { entries, pending, needsAction, sync, syncing, refresh } = useOfflineSync()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [exported, setExported] = useState<Set<string>>(new Set())

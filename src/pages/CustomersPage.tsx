@@ -7,7 +7,7 @@ import EditCustomerModal from '../components/customers/EditCustomerModal'
 import CustomerHistoryModal from '../components/customers/CustomerHistoryModal'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
-import { useIsManager } from '../hooks/useIsAdmin'
+import { useCan } from '../hooks/useCan'
 
 export default function CustomersPage() {
   const showToast = useToast()
@@ -15,7 +15,7 @@ export default function CustomersPage() {
   const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
 
-  const canEdit = useIsManager()
+  const canEdit = useCan('edit_customers')
   const [showAdd, setShowAdd]               = useState(false)
   const [editCustomer, setEditCustomer]     = useState<Customer | null>(null)
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null)
