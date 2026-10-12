@@ -11,7 +11,7 @@ import { todayBangkok, daysAgoBangkokStr } from '../utils/date'
 export default function AddDrugPage() {
   const navigate = useNavigate()
   const showToast = useToast()
-  const { reload: reloadDrugs } = useDrugs()
+  const { stockChanged } = useDrugs()
 
   const [form, setForm] = useState({
     name: '', generic_name: '', type: 'ยาสามัญ', strength: '', barcode: '',
@@ -74,7 +74,7 @@ export default function AddDrugPage() {
         } : {}),
       })
       showToast('เพิ่มยาสำเร็จ')
-      reloadDrugs()
+      stockChanged()
       navigate('/stock')
     } catch (e: unknown) {
       showToast((e as Error).message, 'error')

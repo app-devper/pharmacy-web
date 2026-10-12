@@ -17,7 +17,7 @@ export default function EditDrugPage() {
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const showToast = useToast()
-  const { drugs, loading: drugsLoading, reload: reloadDrugs } = useDrugs()
+  const { drugs, loading: drugsLoading, stockChanged } = useDrugs()
 
   // Lookup drug from the shared cache by URL param.
   const drug = useMemo(() => drugs.find(d => d.id === id), [drugs, id])
@@ -32,7 +32,7 @@ export default function EditDrugPage() {
   const [altUnits, setAltUnits] = useState<AltUnitDraft[]>([])
   const [loading, setLoading] = useState(false)
   // Seed the form only once when the drug first arrives in the cache. Later
-  // background updates (e.g. patchStocks after a sibling sale) mustn't wipe
+  // background updates (e.g. stockChanged after a sibling sale) mustn't wipe
   // the user's in-progress edits.
   const seededRef = useRef(false)
 
@@ -108,7 +108,7 @@ export default function EditDrugPage() {
         prices,
       })
       showToast('แก้ไขยาสำเร็จ')
-      reloadDrugs()
+      stockChanged()
       navigate('/stock')
     } catch (e: unknown) {
       showToast((e as Error).message, 'error')
