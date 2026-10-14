@@ -12,10 +12,9 @@ import { useDrugs } from '../../hooks/useDrugs'
 
 interface Props {
   drugs: Drug[]
-  onReload: () => void
 }
 
-export default function DrugTable({ drugs, onReload }: Props) {
+export default function DrugTable({ drugs }: Props) {
   const navigate = useNavigate()
   const canEditDrug = useCan('edit_drug')
   const canAdjust = useCan('adjust_stock')
@@ -155,7 +154,6 @@ export default function DrugTable({ drugs, onReload }: Props) {
         <LotListModal
           drug={lotDrug}
           onClose={() => setLotDrug(null)}
-          onReload={onReload}
         />
       )}
       {adjustDrug && (

@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { getLots, deleteLot } from '../../api/drugs'
 import { useToast } from '../../hooks/useToast'
+import { useDrugs } from '../../hooks/useDrugs'
+import { useServerRead } from '../../hooks/useServerRead'
 import { Drug, DrugLot } from '../../types/drug'
 import AddLotModal from './AddLotModal'
 import Spinner from '../ui/Spinner'
@@ -8,7 +10,6 @@ import Spinner from '../ui/Spinner'
 interface Props {
   drug: Drug
   onClose: () => void
-  onReload: () => void
 }
 
 function getLotStatus(expiryDate: string): { label: string; cls: string } {
@@ -24,28 +25,20 @@ function fmtDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-export default function LotListModal({ drug, onClose, onReload }: Props) {
+export default function LotListModal({ drug, onClose }: Props) {
   const showToast = useToast()
-  const [lots, setLots] = useState<DrugLot[]>([])
-  const [loading, setLoading] = useState(true)
+  const { stockChanged } = useDrugs()
   const [showAddLot, setShowAddLot] = useState(false)
 
-  const loadLots = useCallback(async () => {
-    setLoading(true)
-    try { setLots(await getLots(drug.id)) }
-    catch (e: unknown) { showToast((e as Error).message, 'error') }
-    finally { setLoading(false) }
-  }, [drug.id, showToast])
-
-  useEffect(() => { loadLots() }, [loadLots])
+  const read = useCallback(() => getLots(drug.id), [drug.id])
+  const { data: lots, loading } = useServerRead<DrugLot[]>(read, [], { followStock: true })
 
   const handleDelete = async (lot: DrugLot) => {
     if (!window.confirm(`ลบล็อต "${lot.lot_number}" (คงเหลือ ${lot.remaining} ${drug.unit})?`)) return
     try {
       await deleteLot(drug.id, lot.id)
       showToast('ลบล็อตสำเร็จ')
-      onReload()
-      loadLots()
+      stockChanged()
     } catch (e: unknown) {
       showToast((e as Error).message, 'error')
     }
@@ -160,7 +153,7 @@ export default function LotListModal({ drug, onClose, onReload }: Props) {
         <AddLotModal
           drug={drug}
           onClose={() => setShowAddLot(false)}
-          onSaved={() => { setShowAddLot(false); loadLots(); onReload() }}
+          onSaved={() => { setShowAddLot(false); stockChanged() }}
         />
       )}
     </>

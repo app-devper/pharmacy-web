@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useCallback } from 'react'
 import { getImportsBySupplier } from '../../api/imports'
-import { useToast } from '../../hooks/useToast'
+import { useServerRead } from '../../hooks/useServerRead'
 import type { Supplier } from '../../types/supplier'
 import type { PurchaseOrderSummary } from '../../types/import'
 import Spinner from '../ui/Spinner'
@@ -12,19 +12,8 @@ interface Props {
 }
 
 export default function SupplierDetailModal({ supplier, onClose }: Props) {
-  const showToast = useToast()
-  const [orders, setOrders]   = useState<PurchaseOrderSummary[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let mounted = true
-    setLoading(true)
-    getImportsBySupplier(supplier.name)
-      .then(data  => { if (mounted) setOrders(data) })
-      .catch(e    => { if (mounted) showToast((e as Error).message, 'error') })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
-  }, [supplier.name, showToast])
+  const read = useCallback(() => getImportsBySupplier(supplier.name), [supplier.name])
+  const { data: orders, loading } = useServerRead<PurchaseOrderSummary[]>(read, [])
 
   const totalCost = orders.reduce((s, o) => s + o.total_cost, 0)
   const confirmedCount = orders.filter(o => o.status === 'confirmed').length
