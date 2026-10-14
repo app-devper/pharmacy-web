@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useCallback } from 'react'
 import { getImport } from '../../api/imports'
-import { useToast } from '../../hooks/useToast'
+import { useServerRead } from '../../hooks/useServerRead'
 import type { PurchaseOrder } from '../../types/import'
 import Spinner from '../ui/Spinner'
 import { fmtDate, fmtMoney } from '../../utils/formatters'
@@ -11,17 +11,8 @@ interface Props {
 }
 
 export default function ImportDetailModal({ importId, onClose }: Props) {
-  const showToast = useToast()
-  const [po, setPo] = useState<PurchaseOrder | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    setLoading(true)
-    getImport(importId)
-      .then(setPo)
-      .catch(e => showToast((e as Error).message, 'error'))
-      .finally(() => setLoading(false))
-  }, [importId, showToast])
+  const read = useCallback(() => getImport(importId), [importId])
+  const { data: po, loading } = useServerRead<PurchaseOrder | null>(read, null)
 
   return (
     <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4">

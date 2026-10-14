@@ -3,6 +3,7 @@ import type { ExpiringLot } from '../types/lot'
 import { getExpiringLots, getExpiredLots, writeoffLots } from '../api/lots'
 import { exportExpiryXlsx } from '../utils/exportXlsx'
 import { useToast } from '../hooks/useToast'
+import { useServerRead } from '../hooks/useServerRead'
 import { useDrugs } from '../hooks/useDrugs'
 import { fmtDateThai } from '../utils/formatters'
 import Spinner from '../components/ui/Spinner'
@@ -36,30 +37,21 @@ export default function ExpiryPage() {
   const showToast = useToast()
   const { stockChanged } = useDrugs()
   const [activeTab, setActiveTab] = useState(1)          // default: 60 วัน
-  const [data, setData]           = useState<ExpiringLot[]>([])
-  const [loading, setLoading]     = useState(true)
+  const [busy, setBusy]           = useState(false)
   const [selected, setSelected]   = useState<Set<string>>(new Set())
 
   const tab = FILTER_TABS[activeTab]
 
-  // ── Fetch ─────────────────────────────────────────────────────────────────
+  // ── Fetch (again after any stock change, including our own write-off) ────
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    setSelected(new Set())
-    try {
-      const result = tab.mode === 'expired'
-        ? await getExpiredLots()
-        : await getExpiringLots(tab.days)
-      setData(result)
-    } catch (e) {
-      showToast((e as Error).message, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }, [tab, showToast])
+  const read = useCallback(
+    () => (tab.mode === 'expired' ? getExpiredLots() : getExpiringLots(tab.days)),
+    [tab],
+  )
+  const { data, loading: reading } = useServerRead<ExpiringLot[]>(read, [], { followStock: true })
+  const loading = reading || busy
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { setSelected(new Set()) }, [data])
 
   // ── Selection helpers ─────────────────────────────────────────────────────
 
@@ -90,15 +82,15 @@ export default function ExpiryPage() {
 
   const handleWriteoff = async (ids: string[]) => {
     if (!window.confirm(`ยืนยันเขียนทิ้ง ${ids.length} รายการ?\nสต็อกจะถูกหักออกและไม่สามารถกู้คืนได้`)) return
-    setLoading(true)
+    setBusy(true)
     try {
       const res = await writeoffLots(ids)
       showToast(`เขียนทิ้งแล้ว ${res.written_off} รายการ`, 'success')
       stockChanged()
-      fetchData()
     } catch (e) {
       showToast((e as Error).message, 'error')
-      setLoading(false)
+    } finally {
+      setBusy(false)
     }
   }
 

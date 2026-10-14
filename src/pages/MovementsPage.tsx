@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { getMovements } from '../api/movements'
 import { useToast } from '../hooks/useToast'
+import { useServerRead } from '../hooks/useServerRead'
 import { fmtDateTime, fmtDateThai } from '../utils/formatters'
 import type { Movement, MovementType } from '../types/movement'
 import Spinner from '../components/ui/Spinner'
@@ -47,9 +48,6 @@ export default function MovementsPage() {
   const [page, setPage]     = useState(0)
 
   // data
-  const [items, setItems]   = useState<Movement[]>([])
-  const [total, setTotal]   = useState(0)
-  const [loading, setLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   // debounce search
@@ -61,26 +59,20 @@ export default function MovementsPage() {
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
   }, [search])
 
-  const fetch = useCallback(async (pageNum = 0) => {
-    setLoading(true)
-    try {
-      const res = await getMovements({
-        from, to,
-        drug_name: debouncedSearch || undefined,
-        types: types.size === ALL_TYPES.length ? undefined : [...types].join(','),
-        limit: PAGE_SIZE,
-        offset: pageNum * PAGE_SIZE,
-      })
-      setItems(res.items)
-      setTotal(res.total)
-    } catch (e) {
-      showToast((e as Error).message, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }, [from, to, debouncedSearch, types, showToast])
+  // The filters as the server reads them; the page and the export share it.
+  const filter = useMemo(() => ({
+    from, to,
+    drug_name: debouncedSearch || undefined,
+    types: types.size === ALL_TYPES.length ? undefined : [...types].join(','),
+  }), [from, to, debouncedSearch, types])
 
-  useEffect(() => { fetch(page) }, [fetch, page])
+  const read = useCallback(
+    () => getMovements({ ...filter, limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
+    [filter, page],
+  )
+  const { data: { items, total }, loading } = useServerRead<{ items: Movement[]; total: number }>(
+    read, { items: [], total: 0 }, { followStock: true },
+  )
 
   // reset page on filter change
   useEffect(() => { setPage(0) }, [from, to, types, debouncedSearch])
@@ -105,13 +97,7 @@ export default function MovementsPage() {
   const handleExport = async () => {
     setExporting(true)
     try {
-      const res = await getMovements({
-        from, to,
-        drug_name: debouncedSearch || undefined,
-        types: types.size === ALL_TYPES.length ? undefined : [...types].join(','),
-        limit: 5000,
-        offset: 0,
-      })
+      const res = await getMovements({ ...filter, limit: 5000, offset: 0 })
       const rows = res.items.map(m => ({
         วันที่เวลา:   fmtDateTime(m.at),
         ประเภท:      TYPE_CONFIG[m.type]?.label ?? m.type,
