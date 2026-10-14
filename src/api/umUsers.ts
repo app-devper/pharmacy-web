@@ -1,22 +1,5 @@
+import { umFetch } from './client'
 import type { UmUser, CreateUserInput, UpdateUserInput, UmUserRules } from '../types/umUser'
-
-const UM_API = import.meta.env.VITE_UM_API_URL || 'http://localhost:8585'
-
-async function umFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem('token')
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options?.headers as Record<string, string>),
-  }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-
-  const res = await fetch(`${UM_API}${path}`, { ...options, headers })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ message: res.statusText }))
-    throw new Error(body.message || `HTTP ${res.status}`)
-  }
-  return res.json() as Promise<T>
-}
 
 export const listUsers = () =>
   umFetch<UmUser[]>('/api/um/v1/user')

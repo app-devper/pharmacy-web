@@ -183,6 +183,7 @@ firebase target:apply hosting <TARGET_NAME> <SITE_ID>
 | Layer | ไฟล์ | หน้าที่ |
 |------|------|---------|
 | PWA config | `vite.config.ts` | `vite-plugin-pwa` · NetworkFirst 24h cache สำหรับ `/api/drugs`, `/api/customers` |
+| Session | `lib/session.ts` | token · request step ของทั้ง pharmacy-api และ um-api (`apiFetch` / `umFetch` ใน `api/client.ts`) · 401 ของ token ปัจจุบัน → จบ session + ล้าง `token`, `pharmacy.sessionUser`, `pharmacy.parkedCarts` แล้ว router พาไปหน้า login (ไม่ hard-navigate กลาง sync) · um-api ติดต่อไม่ได้หรือ 5xx ≠ ถูกปฏิเสธ → reload ตอนออฟไลน์ยังอยู่ในระบบด้วย user ล่าสุดที่ยืนยันแล้ว · `SessionScoped` remount cart เมื่อเปลี่ยนผู้ใช้ |
 | Online detection | `hooks/useOnlineStatus.ts` | `navigator.onLine` + event listener |
 | Sale submission | `lib/pendingSales.ts` | `submitSale` (checkout) และ `syncAll` / `retry` / `abandon` (replay) ส่งผ่าน transport เดียว จัดประเภทความล้มเหลวด้วย `isTemporaryFailure` ตัวเดียว (network, identity 503, 5xx, 401, 403 → เก็บรอ; อื่น ๆ → server ปฏิเสธ) · `SaleAttempt` ให้ `client_request_id` เดียวต่อบิล ใช้ซ้ำทุกครั้งที่ลองใหม่ (pharmacy-api ADR-0002) · ผลเป็น `{status: 'confirmed', sale}` หรือ `{status: 'pending', receipt}` |
 | Queue store | `lib/offlineQueue.ts` | IndexedDB (idb v8) · store `pending_sales` · ใช้โดย `lib/pendingSales` เท่านั้น |
@@ -194,7 +195,7 @@ firebase target:apply hosting <TARGET_NAME> <SITE_ID>
 | Lot snapshot | `types/sale.ts` → `SaleItemInput.lot_snapshot` | Cart แนบ `drug.next_lot` ต่อ item · backend `lot_mismatch` flag เมื่อ sync หลัง FEFO drift |
 
 **Flow:**
-1. Browser offline → DrugGrid ใช้ cache (NetworkFirst fallback) → cart ทำงานตามปกติ
+1. Browser offline (reload ได้ ถ้า token ยังไม่หมดอายุ) → DrugGrid ใช้ cache (NetworkFirst fallback) → cart ทำงานตามปกติ
 2. Checkout → offline หรือส่งไม่สำเร็จชั่วคราว (เช่น 502) → `submitSale` เก็บใน IDB ด้วย request id เดิม + optimistic `patchStocks()` → cashier เห็นเหมือนขายสำเร็จปกติ
 3. Browser online → `useOfflineSync` auto-replay queue → success → remove from IDB · fail → `markSaleError` + persistent red pill
 4. หลัง sync สำเร็จ → `reloadDrugs()` → server authoritative stock override optimistic
