@@ -2,23 +2,25 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { getMovements } from '../api/movements'
 import { useToast } from '../hooks/useToast'
 import { useServerRead } from '../hooks/useServerRead'
-import { fmtDateTime, fmtDateThai } from '../utils/formatters'
-import type { Movement, MovementType } from '../types/movement'
+import { fmtDateThai } from '../utils/formatters'
+import { MOVEMENT_LABELS, type Movement, type MovementType } from '../types/movement'
 import Spinner from '../components/ui/Spinner'
-import * as XLSX from 'xlsx'
+import { exportMovementsXlsx } from '../utils/exportXlsx'
 import { todayBangkok, daysAgoBangkokStr } from '../utils/date'
 
 const PAGE_SIZE = 50
+/** The most rows one export asks the server for. */
+const EXPORT_LIMIT = 5000
 
 // ─── Type config ─────────────────────────────────────────────────────────────
 
 const TYPE_CONFIG: Record<MovementType, { label: string; icon: string; bg: string; text: string }> = {
-  import:     { label: 'นำเข้า',      icon: '📥', bg: 'bg-blue-100',   text: 'text-blue-700'   },
-  sale:       { label: 'ขาย',         icon: '🛒', bg: 'bg-red-100',    text: 'text-red-700'    },
-  return:     { label: 'คืนยา',       icon: '↩️', bg: 'bg-green-100',  text: 'text-green-700'  },
-  adjustment: { label: 'ปรับสต็อก',  icon: '✏️', bg: 'bg-orange-100', text: 'text-orange-700' },
-  writeoff:   { label: 'ตัดสต็อก',   icon: '🗑️', bg: 'bg-gray-100',   text: 'text-gray-600'   },
-  void:       { label: 'ยกเลิกบิล',  icon: '🚫', bg: 'bg-rose-100',   text: 'text-rose-700'   },
+  import:     { label: MOVEMENT_LABELS.import, icon: '📥', bg: 'bg-blue-100',   text: 'text-blue-700'   },
+  sale:       { label: MOVEMENT_LABELS.sale, icon: '🛒', bg: 'bg-red-100',    text: 'text-red-700'    },
+  return:     { label: MOVEMENT_LABELS.return, icon: '↩️', bg: 'bg-green-100',  text: 'text-green-700'  },
+  adjustment: { label: MOVEMENT_LABELS.adjustment, icon: '✏️', bg: 'bg-orange-100', text: 'text-orange-700' },
+  writeoff:   { label: MOVEMENT_LABELS.writeoff, icon: '🗑️', bg: 'bg-gray-100',   text: 'text-gray-600'   },
+  void:       { label: MOVEMENT_LABELS.void, icon: '🚫', bg: 'bg-rose-100',   text: 'text-rose-700'   },
 }
 
 const ALL_TYPES: MovementType[] = ['import', 'sale', 'return', 'adjustment', 'writeoff', 'void']
@@ -97,19 +99,11 @@ export default function MovementsPage() {
   const handleExport = async () => {
     setExporting(true)
     try {
-      const res = await getMovements({ ...filter, limit: 5000, offset: 0 })
-      const rows = res.items.map(m => ({
-        วันที่เวลา:   fmtDateTime(m.at),
-        ประเภท:      TYPE_CONFIG[m.type]?.label ?? m.type,
-        ชื่อยา:      m.drug_name,
-        เลขอ้างอิง:  m.reference,
-        จำนวน:       m.delta > 0 ? `+${m.delta}` : String(m.delta),
-        หมายเหตุ:    m.note,
-      }))
-      const ws = XLSX.utils.json_to_sheet(rows)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Movement')
-      XLSX.writeFile(wb, `movement_${from}_${to}.xlsx`)
+      const res = await getMovements({ ...filter, limit: EXPORT_LIMIT, offset: 0 })
+      exportMovementsXlsx(res.items, from, to)
+      if (res.total > res.items.length) {
+        showToast(`ส่งออก ${res.items.length.toLocaleString()} จาก ${res.total.toLocaleString()} รายการ — กรุณาแบ่งช่วงวันที่`, 'error')
+      }
     } catch (e) {
       showToast((e as Error).message, 'error')
     } finally {

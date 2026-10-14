@@ -5,6 +5,8 @@ import type { Ky9, Ky10, Ky11, Ky12 } from '../types/kyforms'
 import type { EodReport } from '../types/report'
 import type { ProfitReport } from '../types/profitReport'
 import type { ExpiringLot } from '../types/lot'
+import { MOVEMENT_LABELS, type Movement } from '../types/movement'
+import { fmtDateTime } from './formatters'
 import { todayBangkok } from './date'
 
 function save(wb: XLSX.WorkBook, filename: string) {
@@ -29,6 +31,20 @@ export function exportExpiryXlsx(lots: ExpiringLot[], label: string) {
     'สถานะ':      l.days_left < 0 ? 'หมดอายุแล้ว' : `อีก ${l.days_left} วัน`,
   }))
   save(make(rows, 'ยาหมดอายุ'), `expiry-${label}-${todayBangkok()}.xlsx`)
+}
+
+// ─── Movements ───────────────────────────────────────────────────────────────
+
+export function exportMovementsXlsx(items: Movement[], from: string, to: string) {
+  const rows = items.map(m => ({
+    'วันที่เวลา':  fmtDateTime(m.at),
+    'ประเภท':     MOVEMENT_LABELS[m.type] ?? m.type,
+    'ชื่อยา':     m.drug_name,
+    'เลขอ้างอิง': m.reference,
+    'จำนวน':      m.delta > 0 ? `+${m.delta}` : String(m.delta),
+    'หมายเหตุ':   m.note,
+  }))
+  save(make(rows, 'Movement'), `movement_${from}_${to}.xlsx`)
 }
 
 // ─── Stock ───────────────────────────────────────────────────────────────────
