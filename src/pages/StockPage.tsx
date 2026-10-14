@@ -88,7 +88,7 @@ export default function StockPage() {
             }
           </div>
         )}
-        {loading ? <Spinner /> : <DrugTable drugs={filtered} onReload={load} />}
+        {loading ? <Spinner /> : <DrugTable drugs={filtered} />}
       </div>
       {showImport && (
         <ImportDrugsModal

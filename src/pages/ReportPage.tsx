@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
-import type { ReportSummary, DailyData, MonthlyData } from '../types/report'
+import { useState, useMemo, useCallback } from 'react'
+import type { Dashboard, DailyData, MonthlyData } from '../types/report'
 import type { Sale } from '../types/sale'
 import { getDashboard, getDaily } from '../api/report'
-import { useToast } from '../hooks/useToast'
+import { useServerRead } from '../hooks/useServerRead'
 import ReportMetrics from '../components/report/ReportMetrics'
 import SalesBarChart from '../components/report/SalesBarChart'
 import MonthlyChart from '../components/report/MonthlyChart'
@@ -35,52 +35,38 @@ function ManagerReport() {
   )
 }
 
+const DEFAULT_DAYS = 7
+const EMPTY_MONTHLY: MonthlyData[] = []
+const EMPTY_SALES: Sale[] = []
+const EMPTY_DAILY: DailyData[] = []
+
 function AdminReport() {
-  const [summary, setSummary]   = useState<ReportSummary | null>(null)
-  const [daily, setDaily]       = useState<DailyData[]>([])
-  const [monthly, setMonthly]   = useState<MonthlyData[]>([])
-  const [sales, setSales]       = useState<Sale[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [days, setDays]         = useState(7)
+  const [days, setDays]         = useState(DEFAULT_DAYS)
   const [showEod, setShowEod]   = useState(false)
-  const showToast = useToast()
 
-  // Initial load: ONE HTTP call fetches summary + daily + monthly + recent_sales in parallel on the server
-  useEffect(() => {
-    let mounted = true
-    setLoading(true)
-    getDashboard(days)
-      .then(d => {
-        if (!mounted) return
-        setSummary(d.summary)
-        setDaily(d.daily)
-        setMonthly(d.monthly)
-        setSales(d.recent_sales)
-      })
-      .catch((e: unknown) => { if (mounted) showToast((e as Error).message, 'error') })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // One call fetches summary + daily + monthly + recent sales; it follows stock
+  // changes, so a sale, void or return elsewhere shows up here.
+  const dashboardRead = useCallback(() => getDashboard(DEFAULT_DAYS), [])
+  const { data: dashboard, loading } = useServerRead<Dashboard | null>(dashboardRead, null, { followStock: true })
 
-  // Days selector only reloads the daily chart (summary+monthly+recent don't depend on days)
-  const isFirstDays = useRef(true)
-  useEffect(() => {
-    // Skip the first fire: initial dashboard call already populated `daily` for the default days.
-    if (isFirstDays.current) { isFirstDays.current = false; return }
-    let mounted = true
-    getDaily(days)
-      .then(d => { if (mounted) setDaily(d) })
-      .catch((e: unknown) => { if (mounted) showToast((e as Error).message, 'error') })
-    return () => { mounted = false }
-  }, [days, showToast])
+  // Another day range needs only the daily chart; the default comes with the dashboard.
+  const dailyRead = useCallback(
+    () => (days === DEFAULT_DAYS ? Promise.resolve(null) : getDaily(days)),
+    [days],
+  )
+  const { data: otherDaily } = useServerRead<DailyData[] | null>(dailyRead, null, { followStock: true })
+
+  const summary = dashboard?.summary ?? null
+  const monthly = dashboard?.monthly ?? EMPTY_MONTHLY
+  const sales = dashboard?.recent_sales ?? EMPTY_SALES
+  const daily = (days === DEFAULT_DAYS ? dashboard?.daily : otherDaily) ?? EMPTY_DAILY
 
   const currentMonthProfit = useMemo(() => {
     const thisMonth = monthBangkok()
     return monthly.find(m => m.month === thisMonth)?.profit
   }, [monthly])
 
-  if (loading) return <Spinner />
+  if (loading && !dashboard) return <Spinner />
 
   return (
     <div className="p-6">

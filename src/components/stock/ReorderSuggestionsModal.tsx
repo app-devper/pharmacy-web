@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import Spinner from '../ui/Spinner'
 import { getReorderSuggestions } from '../../api/drugs'
 import { createImport } from '../../api/imports'
 import { useToast } from '../../hooks/useToast'
+import { useServerRead } from '../../hooks/useServerRead'
 import { useSettings } from '../../context/SettingsContext'
 import type { ReorderSuggestion } from '../../types/drug'
 import { todayBangkok } from '../../utils/date'
@@ -29,36 +30,24 @@ export default function ReorderSuggestionsModal({ onClose, onCreated }: Props) {
   // Seed from tenant config; user can still override from the dropdowns.
   const [days, setDays] = useState(settings.stock.reorder_days || 30)
   const [lookahead, setLookahead] = useState(settings.stock.reorder_lookahead || 14)
-  const [loading, setLoading] = useState(true)
-  const [items, setItems] = useState<ReorderSuggestion[]>([])
   // per-drug overrides: selected state + adjusted qty
   const [picks, setPicks] = useState<Record<string, { selected: boolean; qty: number }>>({})
   const [supplier, setSupplier] = useState('')
   const [invoiceNo, setInvoiceNo] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Load suggestions when days/lookahead change
+  // Suggestions follow days/lookahead and every stock change.
+  const read = useCallback(() => getReorderSuggestions(days, lookahead), [days, lookahead])
+  const { data: items, loading } = useServerRead<ReorderSuggestion[]>(read, [], { followStock: true })
+
+  // Default selections: suggested_qty > 0 and stock low
   useEffect(() => {
-    let mounted = true
-    setLoading(true)
-    getReorderSuggestions(days, lookahead)
-      .then(data => {
-        if (!mounted) return
-        setItems(data)
-        // Default selections: suggested_qty > 0 and stock low
-        const defaults: Record<string, { selected: boolean; qty: number }> = {}
-        for (const s of data) {
-          defaults[s.drug_id] = {
-            selected: s.suggested_qty > 0,
-            qty: Math.max(1, s.suggested_qty || 0),
-          }
-        }
-        setPicks(defaults)
-      })
-      .catch(e => { if (mounted) showToast((e as Error).message, 'error') })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
-  }, [days, lookahead, showToast])
+    const defaults: Record<string, { selected: boolean; qty: number }> = {}
+    for (const s of items) {
+      defaults[s.drug_id] = { selected: s.suggested_qty > 0, qty: Math.max(1, s.suggested_qty || 0) }
+    }
+    setPicks(defaults)
+  }, [items])
 
   const selectedIds = useMemo(
     () => Object.entries(picks).filter(([, v]) => v.selected).map(([k]) => k),
