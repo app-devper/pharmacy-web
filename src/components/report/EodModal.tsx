@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import type { EodReport } from '../../types/report'
 import { getEod } from '../../api/report'
+import { useServerRead } from '../../hooks/useServerRead'
 import { exportEodXlsx } from '../../utils/exportXlsx'
 import Button from '../ui/Button'
 import Spinner from '../ui/Spinner'
@@ -20,18 +21,13 @@ function MetricCard({ label, value, highlight }: { label: string; value: string;
 export default function EodModal({ onClose }: Props) {
   const today = todayBangkok()
   const [date, setDate] = useState(today)
-  const [report, setReport] = useState<EodReport | null>(null)
-  const [loading, setLoading] = useState(false)
   const [actual, setActual] = useState('')
 
-  useEffect(() => {
-    setLoading(true)
-    setReport(null)
-    getEod(date)
-      .then(setReport)
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [date])
+  const read = useCallback(() => getEod(date), [date])
+  const eod = useServerRead<EodReport | null>(read, null)
+  const loading = eod.loading
+  // A failed read must not leave the previous day's figures on screen.
+  const report = eod.error ? null : eod.data
 
   const diff = report && actual !== ''
     ? (parseFloat(actual) || 0) - report.net_cash

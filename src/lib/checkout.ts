@@ -1,5 +1,6 @@
-import { itemBasePrice } from '../context/CartContext'
+import { getDrugSellPrice } from '../types/drug'
 import type { Drug, PriceTier } from '../types/drug'
+import { resolvePrice } from '../utils/pricing'
 import type { CartItem, SaleItemInput, SaleKyCapture, StockUpdate } from '../types/sale'
 import type { Submitted } from './pendingSales'
 
@@ -12,6 +13,33 @@ import type { Submitted } from './pendingSales'
  * server revalidates prices against the drug (pharmacy-api).
  */
 
+/**
+ * Per-BASE-unit price for a cart item, resolving the right pricing tier.
+ * - base unit → drug.prices[tier] or drug.sell_price
+ * - alt unit  → drug.alt_units[].prices[tier] or alt.sell_price, then ÷ factor
+ */
+export function itemBasePrice(item: CartItem, tier: PriceTier = 'retail'): number {
+  const factor = item.selected_unit_factor ?? 1
+  // Round per-base prices to 2 decimals so fractional division (e.g. ฿100/3)
+  // doesn't show long-tail floats on the cart or leak into receipt math.
+  const round2 = (n: number) => Math.round(n * 100) / 100
+  if (factor > 1 && item.selected_unit) {
+    const alt = item.alt_units?.find(a => a.name === item.selected_unit)
+    if (alt) {
+      const perAlt = resolvePrice(alt.sell_price, alt.prices, tier)
+      return round2(perAlt / factor)
+    }
+    // Fallback: stored add-time price if alt_units metadata is missing
+    return round2((item.selected_unit_price ?? 0) / factor)
+  }
+  return resolvePrice(getDrugSellPrice(item), item.prices, tier)
+}
+
+/** What one base unit of the line sells for after its line discount. */
+export function linePrice(item: CartItem, tier: PriceTier): number {
+  return Math.max(0, itemBasePrice(item, tier) - (item.itemDiscount || 0))
+}
+
 /** One sale line per cart line, with the lot the cashier expects (drug.next_lot). */
 export function saleItemsOf(
   items: CartItem[], tier: PriceTier, drugs: Drug[], allowOversell: ReadonlySet<string> = new Set(),
@@ -19,6 +47,7 @@ export function saleItemsOf(
   return items.map(i => {
     const original = itemBasePrice(i, tier)
     const itemDisc = i.itemDiscount || 0
+    const price = linePrice(i, tier)
     const unit = i.selected_unit ?? ''
     const factor = i.selected_unit_factor ?? 1
     // The backend compares this snapshot with the lot it actually takes from
@@ -27,7 +56,7 @@ export function saleItemsOf(
     return {
       drug_id: i.id,
       qty: i.qty,
-      price: Math.max(0, original - itemDisc),
+      price,
       original_price: original,
       item_discount: itemDisc,
       price_tier: tier,
@@ -55,10 +84,37 @@ const round2 = (n: number) => Math.round(n * 100) / 100
 export function totalsOf(items: CartItem[], tier: PriceTier, discountInput: string, discountType: '฿' | '%'): CartTotals {
   const gross = items.reduce((s, i) => s + itemBasePrice(i, tier) * i.qty, 0)
   const itemDiscount = items.reduce((s, i) => s + (i.itemDiscount || 0) * i.qty, 0)
-  const subtotal = round2(items.reduce((s, i) => s + Math.max(0, itemBasePrice(i, tier) - (i.itemDiscount || 0)) * i.qty, 0))
+  const subtotal = round2(items.reduce((s, i) => s + linePrice(i, tier) * i.qty, 0))
   const value = parseFloat(discountInput) || 0
   const cartDiscount = Math.max(0, discountType === '%' ? Math.min(subtotal * value / 100, subtotal) : Math.min(value, subtotal))
   return { gross, itemDiscount, subtotal, cartDiscount, net: subtotal - cartDiscount }
+}
+
+export interface ReceiptLine {
+  key: string
+  name: string
+  /** In the unit the cashier sold (display units). */
+  qty: number
+  unit: string
+  /** Per display unit, after the line discount. */
+  price: number
+  lineTotal: number
+}
+
+/** The receipt's lines, priced exactly as saleItemsOf priced the sale. */
+export function receiptLinesOf(items: CartItem[], tier: PriceTier): ReceiptLine[] {
+  return items.map(i => {
+    const factor = i.selected_unit_factor ?? 1
+    const perBase = linePrice(i, tier)
+    return {
+      key: `${i.id}::${i.selected_unit ?? ''}`,
+      name: i.name,
+      qty: Math.floor(i.qty / factor),
+      unit: i.selected_unit || i.unit,
+      price: perBase * factor,
+      lineTotal: perBase * i.qty,
+    }
+  })
 }
 
 export interface OversoldLine {

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import type { SlowDrug } from '../../types/report'
 import { getSlowDrugs } from '../../api/report'
-import { useToast } from '../../hooks/useToast'
+import { useServerRead } from '../../hooks/useServerRead'
 import DayPicker from '../ui/DayPicker'
 import Spinner from '../ui/Spinner'
 
@@ -14,20 +14,9 @@ function stockBadgeClass(stock: number) {
 }
 
 export default function SlowDrugsTable() {
-  const showToast = useToast()
-  const [days, setDays]       = useState(90)
-  const [data, setData]       = useState<SlowDrug[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let mounted = true
-    setLoading(true)
-    getSlowDrugs(days)
-      .then(d  => { if (mounted) setData(d) })
-      .catch(e => { if (mounted) showToast((e as Error).message, 'error') })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
-  }, [days, showToast])
+  const [days, setDays] = useState(90)
+  const read = useCallback(() => getSlowDrugs(days), [days])
+  const { data, loading } = useServerRead<SlowDrug[]>(read, [], { followStock: true })
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5">

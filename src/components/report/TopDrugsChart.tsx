@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import type { TopDrug } from '../../types/report'
 import { getTopDrugs } from '../../api/report'
-import { useToast } from '../../hooks/useToast'
+import { useServerRead } from '../../hooks/useServerRead'
 import { fmtMoney } from '../../utils/formatters'
 import DayPicker from '../ui/DayPicker'
 import Spinner from '../ui/Spinner'
@@ -16,20 +16,9 @@ function truncate(s: string, n = 18) {
 }
 
 export default function TopDrugsChart() {
-  const showToast = useToast()
-  const [days, setDays]       = useState(30)
-  const [data, setData]       = useState<TopDrug[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let mounted = true
-    setLoading(true)
-    getTopDrugs(days)
-      .then(d  => { if (mounted) setData(d) })
-      .catch(e => { if (mounted) showToast((e as Error).message, 'error') })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
-  }, [days, showToast])
+  const [days, setDays] = useState(30)
+  const read = useCallback(() => getTopDrugs(days), [days])
+  const { data, loading } = useServerRead<TopDrug[]>(read, [], { followStock: true })
 
   const chartData = [...data]
     .reverse()

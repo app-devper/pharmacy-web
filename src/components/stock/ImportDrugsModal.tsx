@@ -6,6 +6,7 @@ import { bulkImportDrugs, type BulkImportRowError } from '../../api/drugs'
 import { downloadDrugTemplate } from '../../utils/drugTemplate'
 import { useToast } from '../../hooks/useToast'
 import type { DrugInput } from '../../types/drug'
+import { draftProblems, newDrugInput, type DrugDraft } from '../../lib/drugDraft'
 
 interface Props {
   onClose: () => void
@@ -20,28 +21,16 @@ const PREVIEW_LIMIT = 20
 // A=name, B=generic_name, C=type, D=strength, E=barcode,
 // F=cost_price, G=sell_price, H=stock, I=min_stock,
 // J=reg_no, K=unit, L=report_types
-function rowToDrugInput(r: unknown[]): DrugInput {
-  const str = (v: unknown) => (v != null && v !== '' ? String(v).trim() : '')
-  const num = (v: unknown) => Number(v) || 0
+function rowToDraft(r: unknown[]): DrugDraft {
+  const cell = (i: number) => (r[i] == null ? '' : String(r[i]))
   return {
-    name:         str(r[0]),
-    generic_name: str(r[1]),
-    type:         str(r[2]) || 'ยาสามัญ',
-    strength:     str(r[3]),
-    barcode:      str(r[4]),
-    cost_price:   num(r[5]),
-    sell_price:   num(r[6]),
-    stock:        num(r[7]),
-    min_stock:    num(r[8]),
-    reg_no:       str(r[9]),
-    unit:         str(r[10]) || 'เม็ด',
-    report_types: str(r[11])
-      ? str(r[11]).split(',').map(s => s.trim()).filter(Boolean)
-      : [],
+    name: cell(0), generic_name: cell(1), type: cell(2), strength: cell(3), barcode: cell(4),
+    cost_price: cell(5), retail: cell(6), stock: cell(7), min_stock: cell(8),
+    reg_no: cell(9), unit: cell(10), report_types: cell(11),
   }
 }
 
-function parseExcelFile(file: File): Promise<DrugInput[]> {
+function parseExcelFile(file: File): Promise<DrugDraft[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = e => {
@@ -54,7 +43,7 @@ function parseExcelFile(file: File): Promise<DrugInput[]> {
         const drugs = rows
           .slice(1)
           .filter(r => r[0] != null && String(r[0]).trim() !== '')
-          .map(rowToDrugInput)
+          .map(rowToDraft)
         resolve(drugs)
       } catch (err) {
         reject(err)
@@ -87,7 +76,13 @@ export default function ImportDrugsModal({ onClose, onImported }: Props) {
         showToast('ไม่พบข้อมูลในไฟล์', 'error')
         return
       }
-      setDrugs(parsed)
+      // Excel row = index + 2 (row 1 is the header).
+      const bad = parsed.map((d, i) => ({ row: i + 2, problem: draftProblems(d)[0] })).find(x => x.problem)
+      if (bad) {
+        showToast(`แถว ${bad.row}: ${bad.problem}`, 'error')
+        return
+      }
+      setDrugs(parsed.map(d => newDrugInput(d)))
       setFileName(file.name)
       setStep('preview')
     } catch {
