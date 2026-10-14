@@ -160,8 +160,19 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
+            <div>
+              <label className={labelCls}>เลขที่ใบอนุญาตขายยา</label>
+              <input
+                type="text"
+                value={form.store.license_no ?? ''}
+                onChange={e => setStore('license_no', e.target.value)}
+                placeholder="เช่น ขย. 12345/2567"
+                disabled={!canEdit}
+                className={inputCls}
+              />
+            </div>
             <p className="text-xs text-gray-400">
-              ข้อมูลร้านจะแสดงที่หัวใบเสร็จและเอกสารที่ export ออกไป
+              ข้อมูลร้านจะแสดงที่หัวใบเสร็จและเอกสารที่ export ออกไป · เลขที่ใบอนุญาตพิมพ์ที่หัวทะเบียน ขย.9–12
             </p>
 
             <div className="border-t border-gray-100 pt-4">
