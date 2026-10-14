@@ -1,6 +1,6 @@
 import { SaleResponse, CartItem } from '../../types/sale'
 import { printReceipt } from '../../utils/printReceipt'
-import { itemBasePrice } from '../../context/CartContext'
+import { receiptLinesOf } from '../../lib/checkout'
 import { useSettings } from '../../context/SettingsContext'
 import { getTierLabel } from '../../utils/pricing'
 import type { PriceTier } from '../../types/drug'
@@ -16,6 +16,7 @@ interface Props {
 export default function ReceiptModal({ result, items, tier, onClose }: Props) {
   const { settings } = useSettings()
   const priceTier = tier
+  const lines = receiptLinesOf(items, priceTier)
   const date = new Date().toLocaleDateString('th-TH', {
     year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
   })
@@ -24,16 +25,7 @@ export default function ReceiptModal({ result, items, tier, onClose }: Props) {
     printReceipt({
       billNo:   result.bill_no,
       date,
-      items:    items.map(i => {
-        const factor = i.selected_unit_factor ?? 1
-        const basePrice = Math.max(0, itemBasePrice(i, priceTier) - (i.itemDiscount || 0))
-        return {
-          name:  i.name,
-          qty:   Math.floor(i.qty / factor),            // display qty
-          price: basePrice * factor,                    // per display unit
-          unit:  i.selected_unit || i.unit,
-        }
-      }),
+      items:    lines.map(l => ({ name: l.name, qty: l.qty, price: l.price, unit: l.unit })),
       discount: result.discount,
       total:    result.total,
       received: result.total + result.change,  // received = total + change
@@ -68,21 +60,14 @@ export default function ReceiptModal({ result, items, tier, onClose }: Props) {
           </div>
         )}
         <div className="px-5 py-3 space-y-1.5 max-h-48 overflow-y-auto">
-          {items.map(item => {
-            const factor = item.selected_unit_factor ?? 1
-            const basePrice = Math.max(0, itemBasePrice(item, priceTier) - (item.itemDiscount || 0))
-            const displayQty = Math.floor(item.qty / factor)
-            const displayUnit = item.selected_unit || item.unit
-            const lineTotal = basePrice * item.qty
-            return (
-              <div key={`${item.id}::${item.selected_unit ?? ''}`} className="flex justify-between text-sm">
-                <span className="text-gray-700">
-                  {item.name} — {displayQty} {displayUnit}
-                </span>
-                <span className="text-gray-800 font-medium">฿{lineTotal.toLocaleString()}</span>
-              </div>
-            )
-          })}
+          {lines.map(line => (
+            <div key={line.key} className="flex justify-between text-sm">
+              <span className="text-gray-700">
+                {line.name} — {line.qty} {line.unit}
+              </span>
+              <span className="text-gray-800 font-medium">฿{line.lineTotal.toLocaleString()}</span>
+            </div>
+          ))}
         </div>
         <div className="px-5 py-3 border-t border-dashed border-gray-200 space-y-1">
           {result.discount > 0 && (
