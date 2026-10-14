@@ -1,22 +1,12 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, Fragment } from 'react'
 import type { ReactNode } from 'react'
+import { session } from '../api/client'
+import type { SessionUser } from '../lib/session'
 
-const UM_API = import.meta.env.VITE_UM_API_URL || 'http://localhost:8585'
-
-interface User {
-  id: string
-  firstName: string
-  lastName: string
-  username: string
-  role: string
-  system: string
-  phone: string
-  email: string
-}
+const KEEP_ALIVE_INTERVAL_MS = 10 * 60 * 1000
 
 interface AuthContextValue {
-  user: User | null
-  token: string | null
+  user: SessionUser | null
   loading: boolean
   login: (username: string, password: string, system: string) => Promise<void>
   logout: () => Promise<void>
@@ -25,144 +15,57 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-function isTokenExpired(token: string): boolean {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    return Date.now() >= payload.exp * 1000
-  } catch {
-    return true
-  }
-}
-
+/** The React view of the session (lib/session); the session owns the rules. */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(() => {
-    const t = localStorage.getItem('token')
-    if (!t || isTokenExpired(t)) {
-      if (t) localStorage.removeItem('token')
-      return null
-    }
-    return t
-  })
+  const [user, setUser] = useState<SessionUser | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const clearAuth = useCallback(() => {
-    setUser(null)
-    setToken(null)
-    localStorage.removeItem('token')
-    // Scrub user-scoped client storage so a different cashier signing in
-    // on the same browser (POS device shared across shifts, or a forgotten
-    // logout-then-login on a workstation) doesn't inherit the previous
-    // user's WIP + customer references.
-    //
-    // Kept intentionally:
-    //   - 'pharmacy:prefs' — per-browser UI preferences (theme/fontSize),
-    //     not tied to any specific user account.
-    //   - IDB 'pharmacy-pos' offline sale queue — those sales MUST sync
-    //     to the server; the backend dedupes on client_request_id so the
-    //     next user signing in can complete them. The pending list itself
-    //     is not customer-PII (just frozen prices + drug ids + numeric
-    //     qty) and the topbar makes it visible.
-    //   - Workbox runtime caches ('api-drugs' / 'api-customers' from
-    //     vite-plugin-pwa) — NetworkFirst strategy hits the network when
-    //     online; offline-only fallback to cached values is acceptable
-    //     UX for a multi-shift device.
-    localStorage.removeItem('pharmacy.parkedCarts')
-  }, [])
+  useEffect(() => session.subscribe(setUser), [])
 
-  const fetchUserInfo = useCallback(async (tk: string) => {
-    try {
-      const res = await fetch(`${UM_API}/api/um/v1/user/info`, {
-        headers: { Authorization: `Bearer ${tk}` },
-      })
-      if (!res.ok) throw new Error('unauthorized')
-      const data = await res.json()
-      setUser(data)
-    } catch {
-      clearAuth()
-    }
-  }, [clearAuth])
-
-  const keepAlive = useCallback(async (tk: string): Promise<string | null> => {
-    try {
-      const res = await fetch(`${UM_API}/api/um/v1/auth/keep-alive`, {
-        headers: { Authorization: `Bearer ${tk}` },
-      })
-      if (!res.ok) return null
-      const data = await res.json()
-      if (data.accessToken) {
-        setToken(data.accessToken)
-        localStorage.setItem('token', data.accessToken)
-        return data.accessToken
-      }
-      return tk
-    } catch {
-      return null
+  useEffect(() => {
+    let active = true
+    session.resume().then((resumed) => {
+      if (!active) return
+      setUser(resumed)
+      setLoading(false)
+    })
+    return () => {
+      active = false
     }
   }, [])
 
-  // On mount: validate existing token
   useEffect(() => {
-    if (!token) {
-      setLoading(false)
-      return
-    }
-    (async () => {
-      const refreshed = await keepAlive(token)
-      if (refreshed) {
-        await fetchUserInfo(refreshed)
-      } else {
-        clearAuth()
-      }
-      setLoading(false)
-    })()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Keep-alive interval (every 10 minutes)
-  useEffect(() => {
-    if (!token) return
+    if (!user) return
     const id = setInterval(() => {
-      keepAlive(token)
-    }, 10 * 60 * 1000)
+      void session.keepAlive()
+    }, KEEP_ALIVE_INTERVAL_MS)
     return () => clearInterval(id)
-  }, [token, keepAlive])
+  }, [user])
 
   const login = useCallback(async (username: string, password: string, system: string) => {
-    const res = await fetch(`${UM_API}/api/um/v1/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, system }),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ message: 'Login failed' }))
-      throw new Error(err.message || 'Login failed')
-    }
-    const data = await res.json()
-    const tk = data.accessToken as string
-    setToken(tk)
-    localStorage.setItem('token', tk)
-    await fetchUserInfo(tk)
-  }, [fetchUserInfo])
+    await session.login(username, password, system)
+  }, [])
 
-  const logout = useCallback(async () => {
-    if (token) {
-      await fetch(`${UM_API}/api/um/v1/auth/logout`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {})
-    }
-    clearAuth()
-  }, [token, clearAuth])
+  const logout = useCallback(() => session.logout(), [])
 
   const refreshUser = useCallback(async () => {
-    if (token) await fetchUserInfo(token)
-  }, [token, fetchUserInfo])
+    await session.refreshUser()
+  }, [])
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )
+}
+
+/**
+ * Remounts its children whenever the signed-in user changes, so state they
+ * hold in memory (the cart and its parked carts) cannot outlive a session.
+ */
+export function SessionScoped({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
+  return <Fragment key={user?.id ?? 'signed-out'}>{children}</Fragment>
 }
 
 export function useAuth() {
