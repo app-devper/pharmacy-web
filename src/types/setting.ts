@@ -3,6 +3,8 @@ export interface StoreInfo {
   address: string
   phone: string
   tax_id: string
+  /** The shop's drug-selling licence (ใบอนุญาตขายยา), printed on the ขย. registers. */
+  license_no?: string
 }
 
 export interface ReceiptSettings {
@@ -63,7 +65,7 @@ export const TIMEZONE_OPTIONS: readonly string[] = [
 ]
 
 export const defaultSettings: Settings = {
-  store: { name: 'ร้านยา', address: '', phone: '', tax_id: '' },
+  store: { name: 'ร้านยา', address: '', phone: '', tax_id: '', license_no: '' },
   receipt: {
     header: '',
     footer: 'ขอบคุณที่ใช้บริการ',
