@@ -7,7 +7,7 @@ vi.mock('../utils/exportXlsx', () => Object.fromEntries(
   ['exportKy9Xlsx', 'exportKy10Xlsx', 'exportKy11Xlsx', 'exportKy12Xlsx'].map(n => [n, vi.fn()]),
 ))
 
-const { KY10, KY11, KY12, missingFields, toInput } = await import('./kyRegister')
+const { KY9, KY10, KY11, KY12, missingFields, toInput } = await import('./kyRegister')
 
 const ky10 = { date: '2026-05-17', drug_name: 'Phenobarbital', reg_no: '', qty: '30', unit: 'เม็ด', buyer_name: 'นาย ก', buyer_address: '', rx_no: '', doctor: '', balance: '' }
 
@@ -19,6 +19,13 @@ describe('KY registers', () => {
       .toEqual(['purpose'])
     expect(missingFields(KY12, { date: '2026-05-17', rx_no: 'RX', patient_name: 'P', doctor: '', hospital: '', drug_name: 'x', qty: '1', unit: '', total_value: '', status: '' }))
       .toEqual(['doctor'])
+  })
+
+  it('ขย.9 needs a date, a drug and a quantity; a zero price is allowed, as on the server', () => {
+    const ky9 = { date: '2026-05-17', drug_name: 'Pseudoephedrine', reg_no: '', unit: 'เม็ด', qty: '100', price_per_unit: '', seller: '', invoice_no: '' }
+    expect(missingFields(KY9, ky9)).toEqual([])
+    expect(missingFields(KY9, { ...ky9, drug_name: '', qty: '' })).toEqual(['drug_name', 'qty'])
+    expect(toInput(KY9, { ...ky9, price_per_unit: '1.5' })).toEqual({ ...ky9, qty: 100, price_per_unit: 1.5 })
   })
 
   it('turns the typed form into the register input', () => {
