@@ -4,6 +4,7 @@ import Button from '../ui/Button'
 import { bulkImportDrugs, type BulkImportRowError } from '../../api/drugs'
 import { useToast } from '../../hooks/useToast'
 import type { DrugInput } from '../../types/drug'
+import { newDrugInput } from '../../lib/drugDraft'
 
 interface Props {
   onClose: () => void
@@ -28,21 +29,20 @@ type AigxProduct = {
   category?: string
 }
 
+/** aigx products are mostly non-drug stock, so they default to 'ชิ้น'. */
+const AIGX_DEFAULTS = { type: 'ยาสามัญ', unit: 'ชิ้น' }
+
 function mapToDrugInput(p: AigxProduct): DrugInput {
-  return {
-    name:         (p.name ?? '').trim(),
-    generic_name: ((p.nameEn || p.description) ?? '').trim(),
-    type:         (p.category || '').trim() || 'ยาสามัญ',
-    strength:     '',
-    barcode:      (p.serialNumber ?? '').trim(),
-    sell_price:   Math.max(0, +(p.price ?? 0) || 0),
-    cost_price:   Math.max(0, +(p.costPrice ?? 0) || 0),
-    stock:        Math.max(0, Math.floor(+(p.quantity ?? 0) || 0)),
-    min_stock:    0,
-    reg_no:       '',
-    unit:         (p.unit ?? '').trim() || 'ชิ้น',
-    report_types: [],
-  }
+  return newDrugInput({
+    name:         p.name ?? '',
+    generic_name: p.nameEn || p.description || '',
+    type:         p.category,
+    barcode:      p.serialNumber,
+    retail:       p.price,
+    cost_price:   p.costPrice,
+    stock:        p.quantity,
+    unit:         p.unit,
+  }, { defaults: AIGX_DEFAULTS })
 }
 
 function parseJsonFile(file: File): Promise<DrugInput[]> {
