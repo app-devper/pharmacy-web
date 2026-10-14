@@ -1,5 +1,6 @@
 import { CartItem as CartItemType } from '../../types/sale'
-import { itemBasePrice, useCart } from '../../context/CartContext'
+import { useCart } from '../../context/CartContext'
+import { itemBasePrice } from '../../lib/checkout'
 
 interface Props {
   item: CartItemType

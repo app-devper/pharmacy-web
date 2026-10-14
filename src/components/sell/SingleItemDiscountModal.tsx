@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CartItem } from '../../types/sale'
-import { itemBasePrice, useCart } from '../../context/CartContext'
+import { useCart } from '../../context/CartContext'
+import { itemBasePrice } from '../../lib/checkout'
 
 interface Props {
   item: CartItem

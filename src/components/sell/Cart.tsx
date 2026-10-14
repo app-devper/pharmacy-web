@@ -24,7 +24,7 @@ interface Props {
 
 export default function Cart({ onCheckoutDone, onAddCustomer, onKyRequired }: Props) {
   const {
-    items, changeQty, setItemDiscount, total,
+    items, changeQty, setItemDiscount,
     selectedCustomer, setSelectedCustomer,
     priceTier,
     discountInput, discountType, setDiscountInput, setDiscountType,
@@ -47,7 +47,7 @@ export default function Cart({ onCheckoutDone, onAddCustomer, onKyRequired }: Pr
   useEffect(() => { setReceived('') }, [activeSlot])
   useEffect(() => { if (items.length === 0) setReceived('') }, [items.length])
 
-  const { gross: grossSubtotal, itemDiscount: totalItemDiscount, cartDiscount: cartDiscountAmt, net: netTotal } =
+  const { gross: grossSubtotal, itemDiscount: totalItemDiscount, subtotal, cartDiscount: cartDiscountAmt, net: netTotal } =
     totalsOf(items, priceTier, discountInput, discountType)
   const totalDiscount = totalItemDiscount + cartDiscountAmt
   const hasAnyDiscount = totalDiscount > 0
@@ -197,7 +197,7 @@ export default function Cart({ onCheckoutDone, onAddCustomer, onKyRequired }: Pr
       )}
       {showCartDiscount && (
         <CartDiscountModal
-          subtotal={total}
+          subtotal={subtotal}
           cartDiscount={discountInput}
           cartDiscountType={discountType}
           onSetCartDiscount={setDiscountInput}

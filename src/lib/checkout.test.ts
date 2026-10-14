@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Drug } from '../types/drug'
 import type { CartItem } from '../types/sale'
-import { kyFormsNeeded, missingKyFields, oversoldLines, saleItemsOf, stockCatchUp, totalsOf } from './checkout'
+import { itemBasePrice, kyFormsNeeded, linePrice, missingKyFields, oversoldLines, receiptLinesOf, saleItemsOf, stockCatchUp, totalsOf } from './checkout'
 
 const drug = (over: Partial<Drug> = {}): Drug => ({
   id: 'd1', name: 'Paracetamol', generic_name: '', type: '', strength: '', barcode: '',
@@ -9,6 +9,44 @@ const drug = (over: Partial<Drug> = {}): Drug => ({
   report_types: [], created_at: '', ...over,
 })
 const line = (over: Partial<CartItem> = {}): CartItem => ({ ...drug(), qty: 2, itemDiscount: 0, ...over })
+
+describe('line pricing', () => {
+  const tiers = { retail: 10, regular: 9, wholesale: 8 }
+  const box = { name: 'กล่อง', factor: 3, sell_price: 100, prices: { retail: 100, regular: 0, wholesale: 90 } }
+
+  it('prices a base-unit line at the cart tier, falling back to retail when the tier is unset', () => {
+    expect(itemBasePrice(line({ prices: tiers }), 'wholesale')).toBe(8)
+    expect(itemBasePrice(line({ prices: { retail: 10 } }), 'regular')).toBe(10)
+  })
+
+  it('prices an alt-unit line per base unit at the tier, rounded to satang', () => {
+    const item = line({ selected_unit: 'กล่อง', selected_unit_factor: 3, alt_units: [box] })
+    expect(itemBasePrice(item, 'retail')).toBe(33.33)
+    expect(itemBasePrice(item, 'wholesale')).toBe(30)
+    expect(itemBasePrice(item, 'regular')).toBe(33.33)
+  })
+
+  it('falls back to the price stored when the line was added if the alt unit is gone', () => {
+    const item = line({ selected_unit: 'กล่อง', selected_unit_factor: 3, selected_unit_price: 99, alt_units: [] })
+    expect(itemBasePrice(item, 'retail')).toBe(33)
+  })
+
+  it('never prices a line below zero after its discount', () => {
+    expect(linePrice(line({ itemDiscount: 50 }), 'retail')).toBe(0)
+  })
+
+  it('prints the receipt with the same prices the sale was sent with', () => {
+    const items = [
+      line({ qty: 6, itemDiscount: 1, selected_unit: 'กล่อง', selected_unit_factor: 3, alt_units: [box], prices: tiers }),
+      line({ id: 'd2', qty: 4, prices: tiers }),
+    ]
+    const sent = saleItemsOf(items, 'wholesale', [])
+    const printed = receiptLinesOf(items, 'wholesale')
+    expect(printed.map(l => l.lineTotal)).toEqual(sent.map(s => s.price * s.qty))
+    expect(printed[0]).toMatchObject({ qty: 2, unit: 'กล่อง', price: 87 })
+    expect(printed.reduce((s, l) => s + l.lineTotal, 0)).toBe(totalsOf(items, 'wholesale', '', '฿').subtotal)
+  })
+})
 
 describe('saleItemsOf', () => {
   it('prices each line per base unit after its discount, with the expected lot and confirmed oversell', () => {
