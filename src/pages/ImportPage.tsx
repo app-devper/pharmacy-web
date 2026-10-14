@@ -1,20 +1,18 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useToast } from '../hooks/useToast'
+import { useServerRead } from '../hooks/useServerRead'
 import { getImports, deleteImport, confirmImport } from '../api/imports'
 import type { PurchaseOrderSummary } from '../types/import'
 import ImportFormModal from '../components/imports/ImportFormModal'
 import ImportDetailModal from '../components/imports/ImportDetailModal'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
-import { useEffect } from 'react'
 import { fmtDate, fmtMoney } from '../utils/formatters'
 import { useDrugs } from '../hooks/useDrugs'
 
 export default function ImportPage() {
   const showToast = useToast()
   const { stockChanged } = useDrugs()
-  const [orders, setOrders] = useState<PurchaseOrderSummary[]>([])
-  const [loading, setLoading] = useState(true)
 
   const [showCreate, setShowCreate] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -22,15 +20,8 @@ export default function ImportPage() {
 
   const [search, setSearch] = useState('')
 
-  const reload = useCallback(() => {
-    setLoading(true)
-    getImports()
-      .then(setOrders)
-      .catch(e => showToast((e as Error).message, 'error'))
-      .finally(() => setLoading(false))
-  }, [showToast])
-
-  useEffect(() => { reload() }, [reload])
+  // Confirming a receipt changes stock, which reads the list again.
+  const { data: orders, loading, reload } = useServerRead<PurchaseOrderSummary[]>(getImports, [], { followStock: true })
 
   const handleDelete = async (po: PurchaseOrderSummary) => {
     if (!window.confirm(`ลบใบนำเข้า ${po.doc_no} ?\nรายการนี้จะถูกลบถาวร`)) return
@@ -48,7 +39,6 @@ export default function ImportPage() {
     try {
       await confirmImport(po.id)
       showToast(`ยืนยันสำเร็จ — สต็อกเพิ่มแล้ว`)
-      reload()
       // Confirming creates DrugLots + bumps drug.stock → refresh shared drug cache
       // so SellPage/StockPage reflect the new totals without a manual refresh.
       stockChanged()

@@ -3,8 +3,7 @@ import type { ReactNode } from 'react'
 import type { CartItem, ParkedSlot } from '../types/sale'
 import type { Drug, AltUnit, PriceTier } from '../types/drug'
 import type { Customer } from '../types/customer'
-import { getDrugSellPrice } from '../types/drug'
-import { resolvePrice } from '../utils/pricing'
+import { itemBasePrice } from '../lib/checkout'
 
 const PARKED_STORAGE_KEY = 'pharmacy.parkedCarts'
 const PARK_SLOT_COUNT = 5
@@ -16,28 +15,6 @@ const PARK_SLOT_COUNT = 5
  */
 function rowMatches(item: CartItem, id: string, unit: string): boolean {
   return item.id === id && (item.selected_unit ?? '') === unit
-}
-
-/**
- * Per-BASE-unit price for a cart item, resolving the right pricing tier.
- * - base unit → drug.prices[tier] or drug.sell_price
- * - alt unit  → drug.alt_units[].prices[tier] or alt.sell_price, then ÷ factor
- */
-export function itemBasePrice(item: CartItem, tier: PriceTier = 'retail'): number {
-  const factor = item.selected_unit_factor ?? 1
-  // Round per-base prices to 2 decimals so fractional division (e.g. ฿100/3)
-  // doesn't show long-tail floats on the cart or leak into receipt math.
-  const round2 = (n: number) => Math.round(n * 100) / 100
-  if (factor > 1 && item.selected_unit) {
-    const alt = item.alt_units?.find(a => a.name === item.selected_unit)
-    if (alt) {
-      const perAlt = resolvePrice(alt.sell_price, alt.prices, tier)
-      return round2(perAlt / factor)
-    }
-    // Fallback: stored add-time price if alt_units metadata is missing
-    return round2((item.selected_unit_price ?? 0) / factor)
-  }
-  return resolvePrice(getDrugSellPrice(item), item.prices, tier)
 }
 
 type CartAction =
@@ -118,7 +95,6 @@ interface CartContextValue {
   /** discount per DISPLAY unit; converted to per-base internally. */
   setItemDiscount: (id: string, unit: string, discount: number) => void
   clearCart: () => void
-  total: number
   selectedCustomer: Customer | null
   setSelectedCustomer: (c: Customer | null) => void
 
@@ -285,18 +261,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setSlots(s => s.map((v, i) => i === idx ? null : v))
   }
 
-  // total = sum of (effective base price × base qty). item.qty is base units.
-  // Price is resolved at the current cart tier so switching tiers re-prices live.
-  const total = Math.round(
-    items.reduce((s, i) => {
-      const effectivePrice = Math.max(0, itemBasePrice(i, priceTier) - (i.itemDiscount || 0))
-      return s + effectivePrice * i.qty
-    }, 0) * 100,
-  ) / 100
-
   return (
     <CartContext.Provider value={{
-      items, addToCart, changeQty, setItemDiscount, clearCart, total,
+      items, addToCart, changeQty, setItemDiscount, clearCart,
       selectedCustomer, setSelectedCustomer: selectCustomer,
       priceTier,
       discountInput, discountType, setDiscountInput, setDiscountType,

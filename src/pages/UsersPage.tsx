@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import type { UmUser, CreateUserInput, UpdateUserInput } from '../types/umUser'
 import {
   listUsers, getUserRules, createUser, updateUser, deleteUser,
   setUserRole, setUserStatus, setUserPassword,
 } from '../api/umUsers'
 import { useToast } from '../hooks/useToast'
+import { useServerRead } from '../hooks/useServerRead'
 import { useAuth } from '../context/AuthContext'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
@@ -228,31 +229,25 @@ function UserDetailModal({ user, onClose }: { user: UmUser; onClose: () => void 
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
+const NO_USERS = { users: [] as UmUser[], canCreate: false }
+
+/** The user list and whether this user may create anyone (um-api ADR-0006). */
+async function readUsers() {
+  const [users, rules] = await Promise.all([listUsers(), getUserRules()])
+  return { users, canCreate: rules.creatableRoles.length > 0 }
+}
+
 export default function UsersPage() {
   const showToast = useToast()
   const { user: me } = useAuth()
 
-  const [users, setUsers]               = useState<UmUser[]>([])
-  const [canCreate, setCanCreate]       = useState(false)
-  const [loading, setLoading]           = useState(true)
   const [search, setSearch]             = useState('')
   const [showAdd, setShowAdd]           = useState(false)
   const [editTarget, setEditTarget]     = useState<UmUser | null>(null)
   const [pwdTarget, setPwdTarget]       = useState<UmUser | null>(null)
   const [detailTarget, setDetailTarget] = useState<UmUser | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [list, rules] = await Promise.all([listUsers(), getUserRules()])
-      setUsers(list)
-      setCanCreate(rules.creatableRoles.length > 0)
-    }
-    catch (e: unknown) { showToast((e as Error).message, 'error') }
-    finally { setLoading(false) }
-  }, [showToast])
-
-  useEffect(() => { load() }, [load])
+  const { data: { users, canCreate }, loading, reload: load } = useServerRead(readUsers, NO_USERS)
 
   const handleToggleStatus = async (u: UmUser) => {
     const next = u.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
