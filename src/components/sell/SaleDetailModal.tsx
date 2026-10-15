@@ -14,6 +14,7 @@ import { getTierLabel } from '../../utils/pricing'
 interface Props {
   sale: Sale
   onClose: () => void
+  /** The sale was voided or partly returned (stock is already up to date); redraw. */
   onSaleChanged?: () => void
 }
 

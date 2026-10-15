@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { getCustomerSales } from '../../api/customers'
 import { useToast } from '../../hooks/useToast'
 import { fmtDateThai, fmtMoney } from '../../utils/formatters'
@@ -26,12 +26,14 @@ export default function CustomerHistoryModal({ customer, onClose }: Props) {
   const [loading, setLoading] = useState(true)
   const [detailSale, setDetailSale] = useState<Sale | null>(null)
 
-  useEffect(() => {
+  const loadSales = useCallback(() => {
     getCustomerSales(customer.id)
       .then(setSales)
       .catch(e => showToast((e as Error).message, 'error'))
       .finally(() => setLoading(false))
   }, [customer.id, showToast])
+
+  useEffect(() => { loadSales() }, [loadSales])
 
   const hasAllergy = customer.disease && customer.disease !== '-' && customer.disease !== ''
 
@@ -129,7 +131,11 @@ export default function CustomerHistoryModal({ customer, onClose }: Props) {
 
       {/* Nested sale detail */}
       {detailSale && (
-        <SaleDetailModal sale={detailSale} onClose={() => setDetailSale(null)} />
+        <SaleDetailModal
+          sale={detailSale}
+          onClose={() => setDetailSale(null)}
+          onSaleChanged={() => { setDetailSale(null); loadSales() }}
+        />
       )}
     </>
   )

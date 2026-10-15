@@ -4,7 +4,8 @@ import { DRUG_TYPES } from '../types/drug'
 import { useDrugs } from '../hooks/useDrugs'
 import StockMetrics from '../components/stock/StockMetrics'
 import DrugTable from '../components/stock/DrugTable'
-import ImportDrugsModal from '../components/stock/ImportDrugsModal'
+import DrugImportModal from '../components/stock/DrugImportModal'
+import { excelFormat } from '../components/stock/importFormats'
 import ReorderSuggestionsModal from '../components/stock/ReorderSuggestionsModal'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
@@ -91,7 +92,8 @@ export default function StockPage() {
         {loading ? <Spinner /> : <DrugTable drugs={filtered} />}
       </div>
       {showImport && (
-        <ImportDrugsModal
+        <DrugImportModal
+          format={excelFormat}
           onClose={() => setShowImport(false)}
           onImported={() => { load() }}
         />

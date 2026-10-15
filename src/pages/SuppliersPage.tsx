@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
-import { getSuppliers, deleteSupplier } from '../api/suppliers'
+import { useState, useEffect } from 'react'
+import { deleteSupplier } from '../api/suppliers'
+import { useSuppliers } from '../hooks/useSuppliers'
 import { useToast } from '../hooks/useToast'
+import { errorText } from '../lib/latest'
 import type { Supplier } from '../types/supplier'
 import SupplierFormModal from '../components/suppliers/SupplierFormModal'
 import SupplierDetailModal from '../components/suppliers/SupplierDetailModal'
@@ -9,30 +11,23 @@ import Spinner from '../components/ui/Spinner'
 
 export default function SuppliersPage() {
   const showToast = useToast()
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [loading, setLoading]     = useState(true)
+  const { suppliers, loading, error, reload } = useSuppliers()
   const [search, setSearch]       = useState('')
 
   const [showAdd, setShowAdd]           = useState(false)
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null)
   const [detailSupplier, setDetailSupplier] = useState<Supplier | null>(null)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    getSuppliers()
-      .then(setSuppliers)
-      .catch(e => showToast((e as Error).message, 'error'))
-      .finally(() => setLoading(false))
-  }, [showToast])
-
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (error) showToast(errorText(error), 'error')
+  }, [error, showToast])
 
   const handleDelete = async (s: Supplier) => {
     if (!window.confirm(`ลบซัพพลายเออร์ "${s.name}" ?\nรายการนี้จะถูกลบถาวร`)) return
     try {
       await deleteSupplier(s.id)
       showToast('ลบซัพพลายเออร์สำเร็จ')
-      load()
+      reload()
     } catch (e) { showToast((e as Error).message, 'error') }
   }
 
@@ -133,14 +128,14 @@ export default function SuppliersPage() {
       {showAdd && (
         <SupplierFormModal
           onClose={() => setShowAdd(false)}
-          onSaved={() => { setShowAdd(false); load() }}
+          onSaved={() => { setShowAdd(false); reload() }}
         />
       )}
       {editSupplier && (
         <SupplierFormModal
           supplier={editSupplier}
           onClose={() => setEditSupplier(null)}
-          onSaved={() => { setEditSupplier(null); load() }}
+          onSaved={() => { setEditSupplier(null); reload() }}
         />
       )}
       {detailSupplier && (
