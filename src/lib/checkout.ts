@@ -35,9 +35,19 @@ export function itemBasePrice(item: CartItem, tier: PriceTier = 'retail'): numbe
   return resolvePrice(getDrugSellPrice(item), item.prices, tier)
 }
 
+/**
+ * The line discount per base unit that actually applies at this tier: never
+ * more than the line's price, so a discount set at retail cannot exceed a
+ * cheaper tier's price after the customer changes. The bill, the totals and
+ * the item_discount sent all use this one figure.
+ */
+export function lineDiscount(item: CartItem, tier: PriceTier): number {
+  return Math.min(Math.max(0, item.itemDiscount || 0), itemBasePrice(item, tier))
+}
+
 /** What one base unit of the line sells for after its line discount. */
 export function linePrice(item: CartItem, tier: PriceTier): number {
-  return Math.max(0, itemBasePrice(item, tier) - (item.itemDiscount || 0))
+  return itemBasePrice(item, tier) - lineDiscount(item, tier)
 }
 
 /** One sale line per cart line, with the lot the cashier expects (drug.next_lot). */
@@ -46,7 +56,7 @@ export function saleItemsOf(
 ): SaleItemInput[] {
   return items.map(i => {
     const original = itemBasePrice(i, tier)
-    const itemDisc = i.itemDiscount || 0
+    const itemDisc = lineDiscount(i, tier)
     const price = linePrice(i, tier)
     const unit = i.selected_unit ?? ''
     const factor = i.selected_unit_factor ?? 1
@@ -83,7 +93,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100
 /** The cart's amounts. A cart discount never exceeds the subtotal. */
 export function totalsOf(items: CartItem[], tier: PriceTier, discountInput: string, discountType: '฿' | '%'): CartTotals {
   const gross = items.reduce((s, i) => s + itemBasePrice(i, tier) * i.qty, 0)
-  const itemDiscount = items.reduce((s, i) => s + (i.itemDiscount || 0) * i.qty, 0)
+  const itemDiscount = items.reduce((s, i) => s + lineDiscount(i, tier) * i.qty, 0)
   const subtotal = round2(items.reduce((s, i) => s + linePrice(i, tier) * i.qty, 0))
   const value = parseFloat(discountInput) || 0
   const cartDiscount = Math.max(0, discountType === '%' ? Math.min(subtotal * value / 100, subtotal) : Math.min(value, subtotal))
