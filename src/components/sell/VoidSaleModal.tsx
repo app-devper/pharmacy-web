@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { voidSale } from '../../api/sales'
+import { useSaleCorrections } from '../../hooks/useSaleCorrections'
 import { useToast } from '../../hooks/useToast'
+import { errorText } from '../../lib/latest'
 import type { Sale } from '../../types/sale'
 
 interface Props {
@@ -13,16 +14,16 @@ export default function VoidSaleModal({ sale, onVoided, onClose }: Props) {
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
   const showToast = useToast()
+  const corrections = useSaleCorrections()
 
   const handleConfirm = async () => {
-    if (!reason.trim()) { showToast('กรุณาระบุเหตุผล', 'error'); return }
     setSaving(true)
     try {
-      await voidSale(sale.id, reason.trim())
+      await corrections.void(sale, reason)
       showToast(`ยกเลิกบิล ${sale.bill_no} สำเร็จ`, 'success')
       onVoided()
     } catch (e: unknown) {
-      showToast((e as Error).message, 'error')
+      showToast(errorText(e), 'error')
     } finally {
       setSaving(false)
     }

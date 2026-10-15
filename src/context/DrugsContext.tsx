@@ -25,7 +25,7 @@ const Ctx = createContext<DrugsContextValue | null>(null)
  * SellPage, StockPage, ImportFormModal, KyDrugSelect, etc. so navigating
  * between pages does NOT trigger a re-fetch.
  *
- * Every command that changes stock (sale, void, return, goods receipt,
+ * Every command that changes stock (sale, void and return via lib/saleCorrection, goods receipt,
  * count, adjustment, drug add/edit/import, pending-sale sync) ends with
  * `stockChanged`, which decides between a patch and a re-fetch and lets the
  * dependent views (expiry alert) know.
