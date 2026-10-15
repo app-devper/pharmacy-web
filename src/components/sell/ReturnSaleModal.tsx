@@ -1,8 +1,8 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import Button from '../ui/Button'
-import { createReturn } from '../../api/sales'
-import { newRequestId } from '../../lib/requestId'
+import { useSaleCorrections } from '../../hooks/useSaleCorrections'
 import { useToast } from '../../hooks/useToast'
+import { errorText } from '../../lib/latest'
 import { fmtDate, fmtMoney } from '../../utils/formatters'
 import type { Sale, SaleItem, DrugReturn } from '../../types/sale'
 
@@ -21,9 +21,7 @@ export default function ReturnSaleModal({ sale, items, existingReturns, onClose,
   )
   const [reason, setReason]   = useState('')
   const [loading, setLoading] = useState(false)
-  // One request id per distinct return: a retry of the same items and reason
-  // reuses it, so a lost response cannot record the return twice.
-  const attempt = useRef<{ key: string; id: string } | null>(null)
+  const corrections = useSaleCorrections()
 
   // What each line has returned and can still return comes from the server's
   // return rule (pharmacy-api ADR-0012), which also caps units not sold from a lot.
@@ -53,18 +51,12 @@ export default function ReturnSaleModal({ sale, items, existingReturns, onClose,
     if (!canSave) return
     setLoading(true)
     try {
-      const filteredItems = items
-        .filter(i => (returnQtys[i.id] ?? 0) > 0)
-        .map(i => ({ sale_item_id: i.id, qty: returnQtys[i.id] }))
-
-      const request = { items: filteredItems, reason: reason.trim() }
-      const key = JSON.stringify(request)
-      if (attempt.current?.key !== key) attempt.current = { key, id: newRequestId('return') }
-      const result = await createReturn(sale.id, { ...request, client_request_id: attempt.current.id })
+      const lines = items.map(i => ({ sale_item_id: i.id, qty: returnQtys[i.id] ?? 0 }))
+      const result = await corrections.returnItems(sale, lines, reason)
       showToast(`คืนยาสำเร็จ — คืนเงิน ${fmtMoney(result.refund)}`)
       onReturned(result)
     } catch (e: unknown) {
-      showToast((e as Error).message, 'error')
+      showToast(errorText(e), 'error')
     } finally {
       setLoading(false)
     }

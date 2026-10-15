@@ -5,7 +5,6 @@ import { useServerRead } from '../hooks/useServerRead'
 import { fmtDateTime } from '../utils/formatters'
 import SaleDetailModal from '../components/sell/SaleDetailModal'
 import Spinner from '../components/ui/Spinner'
-import { useDrugs } from '../hooks/useDrugs'
 import { todayBangkok } from '../utils/date'
 
 export default function SalesHistoryPage() {
@@ -14,7 +13,6 @@ export default function SalesHistoryPage() {
   const [to,   setTo]   = useState(today)
   const [q,    setQ]    = useState('')
   const [selected, setSelected] = useState<Sale | null>(null)
-  const { stockChanged } = useDrugs()
 
   // Follows stock changes, so a void or return made here (or anywhere) shows up.
   const read = useCallback(
@@ -132,12 +130,7 @@ export default function SalesHistoryPage() {
         <SaleDetailModal
           sale={selected}
           onClose={() => setSelected(null)}
-          onSaleChanged={() => {
-            // Void/return restores stock on the backend → invalidate shared drug cache
-            // so SellPage/StockPage don't show stale numbers.
-            setSelected(null)
-            stockChanged()
-          }}
+          onSaleChanged={() => setSelected(null)}
         />
       )}
     </div>
