@@ -1,9 +1,6 @@
-import { getSuppliers } from '../api/suppliers'
-import { cachedList } from './cachedList'
-
-const useSupplierList = cachedList(getSuppliers)
+import { supplierList, useReferenceList } from './referenceLists'
 
 export function useSuppliers() {
-  const { items: suppliers, loading, reload } = useSupplierList()
-  return { suppliers, loading, reload }
+  const { items: suppliers, loading, error } = useReferenceList(supplierList)
+  return { suppliers, loading, error, reload: supplierList.refresh }
 }
