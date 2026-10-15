@@ -35,6 +35,15 @@ describe('line pricing', () => {
     expect(linePrice(line({ itemDiscount: 50 }), 'retail')).toBe(0)
   })
 
+  it('sends and totals the discount that applies, never more than the line price', () => {
+    // A 30 discount set at retail 100, then a wholesale customer whose price is 20.
+    const item = line({ qty: 1, itemDiscount: 30, sell_price: 100, prices: { retail: 100, wholesale: 20 } })
+    const [sent] = saleItemsOf([item], 'wholesale', [])
+    expect(sent).toMatchObject({ original_price: 20, item_discount: 20, price: 0 })
+    const totals = totalsOf([item], 'wholesale', '', '฿')
+    expect(totals.gross - totals.itemDiscount).toBe(totals.subtotal)
+  })
+
   it('prints the receipt with the same prices the sale was sent with', () => {
     const items = [
       line({ qty: 6, itemDiscount: 1, selected_unit: 'กล่อง', selected_unit_factor: 3, alt_units: [box], prices: tiers }),
