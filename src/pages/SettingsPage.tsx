@@ -6,7 +6,8 @@ import { useCan } from '../hooks/useCan'
 import { useDrugs } from '../hooks/useDrugs'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
-import ImportJsonModal from '../components/stock/ImportJsonModal'
+import DrugImportModal from '../components/stock/DrugImportModal'
+import { aigxJsonFormat } from '../components/stock/importFormats'
 import type { Settings } from '../types/setting'
 import { defaultSettings, TIMEZONE_OPTIONS } from '../types/setting'
 
@@ -444,7 +445,8 @@ export default function SettingsPage() {
       </div>
 
       {showImportJson && (
-        <ImportJsonModal
+        <DrugImportModal
+          format={aigxJsonFormat}
           onClose={() => setShowImportJson(false)}
           onImported={() => { stockChanged() }}
         />
