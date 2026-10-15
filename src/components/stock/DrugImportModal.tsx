@@ -1,12 +1,14 @@
 import { useState, useRef } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
-import { bulkImportDrugs, type BulkImportRowError } from '../../api/drugs'
+import { bulkImportDrugs } from '../../api/drugs'
 import { useToast } from '../../hooks/useToast'
-import type { DrugInput } from '../../types/drug'
-import { newDrugInput } from '../../lib/drugDraft'
+import { errorText } from '../../lib/latest'
+import { prepareImport, runImport, type ImportLine, type ImportOutcome } from '../../lib/drugImport'
+import type { DrugImportFormat } from './importFormats'
 
 interface Props {
+  format: DrugImportFormat
   onClose: () => void
   onImported: () => void
 }
@@ -14,85 +16,40 @@ interface Props {
 type Step = 'idle' | 'preview' | 'result'
 
 const PREVIEW_LIMIT = 20
-const BATCH = 1000 // backend limit
 
-// Shape of a single record in aigx.products.json (MongoDB export)
-type AigxProduct = {
-  name?: string
-  nameEn?: string
-  description?: string
-  price?: number
-  costPrice?: number
-  unit?: string
-  serialNumber?: string
-  quantity?: number
-  category?: string
-}
-
-/** aigx products are mostly non-drug stock, so they default to 'ชิ้น'. */
-const AIGX_DEFAULTS = { type: 'ยาสามัญ', unit: 'ชิ้น' }
-
-function mapToDrugInput(p: AigxProduct): DrugInput {
-  return newDrugInput({
-    name:         p.name ?? '',
-    generic_name: p.nameEn || p.description || '',
-    type:         p.category,
-    barcode:      p.serialNumber,
-    retail:       p.price,
-    cost_price:   p.costPrice,
-    stock:        p.quantity,
-    unit:         p.unit,
-  }, { defaults: AIGX_DEFAULTS })
-}
-
-function parseJsonFile(file: File): Promise<DrugInput[]> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader()
-    r.onload = e => {
-      try {
-        const raw = JSON.parse(e.target!.result as string) as AigxProduct[]
-        if (!Array.isArray(raw)) throw new Error('ไฟล์ JSON ต้องเป็น array')
-        const drugs = raw
-          .filter(p => (p.name ?? '').trim() !== '')
-          .map(mapToDrugInput)
-        resolve(drugs)
-      } catch (err) {
-        reject(err instanceof Error ? err : new Error('parse error'))
-      }
-    }
-    r.onerror = () => reject(new Error('อ่านไฟล์ไม่สำเร็จ'))
-    r.readAsText(file, 'utf-8')
-  })
-}
-
-export default function ImportJsonModal({ onClose, onImported }: Props) {
+/** Bulk drug import for one file format (lib/drugImport does the work). */
+export default function DrugImportModal({ format, onClose, onImported }: Props) {
   const showToast = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState<Step>('idle')
-  const [drugs, setDrugs] = useState<DrugInput[]>([])
+  const [lines, setLines] = useState<ImportLine[]>([])
   const [fileName, setFileName] = useState('')
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState({ done: 0, total: 0 })
-  const [imported, setImported] = useState(0)
-  const [errors, setErrors] = useState<BulkImportRowError[]>([])
+  const [outcome, setOutcome] = useState<ImportOutcome | null>(null)
   const [dragOver, setDragOver] = useState(false)
 
   const handleFile = async (file: File) => {
-    if (!file.name.match(/\.json$/i)) {
-      showToast('รองรับเฉพาะไฟล์ .json', 'error')
+    if (!format.pattern.test(file.name)) {
+      showToast(format.unsupported, 'error')
       return
     }
     try {
-      const parsed = await parseJsonFile(file)
-      if (parsed.length === 0) {
+      const rows = await format.read(file)
+      if (rows.length === 0) {
         showToast('ไม่พบข้อมูลในไฟล์', 'error')
         return
       }
-      setDrugs(parsed)
+      const prepared = prepareImport(rows, format.defaults)
+      if (!prepared.ok) {
+        showToast(`แถว ${prepared.row}: ${prepared.problem}`, 'error')
+        return
+      }
+      setLines(prepared.lines)
       setFileName(file.name)
       setStep('preview')
     } catch (e) {
-      showToast((e as Error).message || 'ไม่สามารถอ่านไฟล์ได้', 'error')
+      showToast(e instanceof Error && e.message ? e.message : 'ไม่สามารถอ่านไฟล์ได้', 'error')
     }
   }
 
@@ -105,35 +62,24 @@ export default function ImportJsonModal({ onClose, onImported }: Props) {
 
   const handleImport = async () => {
     setLoading(true)
-    setProgress({ done: 0, total: drugs.length })
-    let totalImported = 0
-    const allErrors: BulkImportRowError[] = []
-    try {
-      for (let i = 0; i < drugs.length; i += BATCH) {
-        const chunk = drugs.slice(i, i + BATCH)
-        const res = await bulkImportDrugs(chunk)
-        totalImported += res.imported
-        // Re-map row numbers to absolute position in the source file
-        // Backend reports row starting at 2 (row 1 = header for Excel); for JSON we
-        // adjust to the record index: row = (i + (e.row - 2)) + 1 → simpler: i + e.row - 1
-        res.errors.forEach(e => allErrors.push({ ...e, row: i + e.row - 1 }))
-        setProgress({ done: Math.min(i + chunk.length, drugs.length), total: drugs.length })
-      }
-      setImported(totalImported)
-      setErrors(allErrors)
-      setStep('result')
-      if (totalImported > 0) onImported()
-    } catch (e: unknown) {
-      showToast((e as Error).message, 'error')
-    } finally {
-      setLoading(false)
-    }
+    setProgress({ done: 0, total: lines.length })
+    const result = await runImport(lines, bulkImportDrugs, (done, total) => setProgress({ done, total }))
+    setLoading(false)
+    setOutcome(result)
+    setStep('result')
+    if (result.imported > 0) onImported()
+  }
+
+  const startOver = () => {
+    setStep('idle')
+    setLines([])
+    setOutcome(null)
   }
 
   // ── IDLE ──────────────────────────────────────────────────────────
   if (step === 'idle') {
     return (
-      <Modal title="นำเข้ายาจาก JSON" onClose={onClose}>
+      <Modal title={format.title} onClose={onClose}>
         <div className="space-y-4">
           <div
             onClick={() => fileInputRef.current?.click()}
@@ -141,32 +87,44 @@ export default function ImportJsonModal({ onClose, onImported }: Props) {
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
-              dragOver ? 'border-amber-400 bg-amber-50' : 'border-gray-200 hover:border-amber-300 hover:bg-gray-50'
+              dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
             }`}
           >
-            <div className="text-4xl mb-3">📄</div>
+            <div className="text-4xl mb-3">{format.icon}</div>
             <p className="text-sm font-medium text-gray-700">คลิกเพื่อเลือกไฟล์ หรือลากวางที่นี่</p>
-            <p className="text-xs text-gray-400 mt-1">รองรับ .json (array of products)</p>
+            <p className="text-xs text-gray-400 mt-1">{format.dropHint}</p>
           </div>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".json,application/json"
+            accept={format.accept}
             className="hidden"
             onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])}
           />
 
-          <div className="bg-gray-50 rounded-xl px-4 py-3">
-            <p className="text-xs font-medium text-gray-600 mb-1.5">Field mapping</p>
-            <ul className="text-xs text-gray-500 space-y-0.5">
-              <li><span className="font-mono text-gray-700">name</span> → ชื่อการค้า</li>
-              <li><span className="font-mono text-gray-700">nameEn / description</span> → ชื่อสามัญ</li>
-              <li><span className="font-mono text-gray-700">price / costPrice</span> → ราคาขาย / ต้นทุน</li>
-              <li><span className="font-mono text-gray-700">serialNumber</span> → บาร์โค้ด</li>
-              <li><span className="font-mono text-gray-700">quantity</span> → สต็อก (ไม่สร้างล็อต)</li>
-              <li><span className="font-mono text-gray-700">unit / category</span> → หน่วย / ประเภท</li>
-            </ul>
-          </div>
+          {format.template && (
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
+              <div>
+                <p className="text-sm font-medium text-gray-700">ดาวน์โหลด Template</p>
+                <p className="text-xs text-gray-400">ไฟล์ตัวอย่างพร้อม header และข้อมูลตัวอย่าง 1 แถว</p>
+              </div>
+              <Button variant="secondary" onClick={format.template}
+                className="border-green-300 text-green-700 hover:bg-green-50 shrink-0">
+                ⬇ Template
+              </Button>
+            </div>
+          )}
+
+          {format.mapping && (
+            <div className="bg-gray-50 rounded-xl px-4 py-3">
+              <p className="text-xs font-medium text-gray-600 mb-1.5">Field mapping</p>
+              <ul className="text-xs text-gray-500 space-y-0.5">
+                {format.mapping.map(([from, to]) => (
+                  <li key={from}><span className="font-mono text-gray-700">{from}</span> → {to}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <Button variant="secondary" className="w-full" onClick={onClose}>ปิด</Button>
         </div>
@@ -176,31 +134,29 @@ export default function ImportJsonModal({ onClose, onImported }: Props) {
 
   // ── PREVIEW ───────────────────────────────────────────────────────
   if (step === 'preview') {
-    const preview = drugs.slice(0, PREVIEW_LIMIT)
-    const withStock = drugs.filter(d => d.stock > 0).length
+    const preview = lines.slice(0, PREVIEW_LIMIT)
+    const withStock = lines.filter(l => l.input.stock > 0).length
     return (
       <Modal title={`ตรวจสอบข้อมูล — ${fileName}`} onClose={onClose}>
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="px-2.5 py-1 bg-amber-100 text-amber-700 text-sm font-semibold rounded-full">
-              {drugs.length.toLocaleString()} รายการ
+            <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-sm font-semibold rounded-full">
+              {lines.length.toLocaleString()} รายการ
             </span>
             {withStock > 0 && (
               <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">
                 มีสต็อก {withStock.toLocaleString()} รายการ
               </span>
             )}
-            {drugs.length > PREVIEW_LIMIT && (
-              <span className="text-xs text-gray-400">
-                แสดง {PREVIEW_LIMIT} รายการแรก
-              </span>
+            {lines.length > PREVIEW_LIMIT && (
+              <span className="text-xs text-gray-400">แสดง {PREVIEW_LIMIT} รายการแรก</span>
             )}
           </div>
 
           {withStock > 0 && (
             <div className="flex gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-xs text-amber-700">
               <span aria-hidden="true">ℹ</span>
-              <span>ยาที่มีสต็อก {'>'} 0 จะถูกสร้างโดยยังไม่มีล็อต — กรุณาเพิ่มล็อตในหน้ารายการยาเพื่อให้ระบบ FEFO ทำงานถูกต้อง</span>
+              <span>สต็อกที่นำเข้าจะอยู่ในล็อตเปิดยอด (OPENING, ไม่มีวันหมดอายุ) — เพิ่มล็อตจริงในหน้ารายการยาเพื่อให้ระบบ FEFO ทำงานถูกต้อง</span>
             </div>
           )}
 
@@ -208,28 +164,25 @@ export default function ImportJsonModal({ onClose, onImported }: Props) {
             <table className="w-full text-xs">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600">#</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600">แถว</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-600">ชื่อการค้า</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600">ประเภท</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-600">ราคาขาย</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-600">สต็อก</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-600">บาร์โค้ด</th>
                 </tr>
               </thead>
               <tbody>
-                {preview.map((d, i) => (
-                  <tr key={i} className={`border-t border-gray-100 ${!d.name ? 'bg-red-50' : ''}`}>
-                    <td className="px-3 py-1.5 text-gray-400">{i + 1}</td>
+                {preview.map(({ row, input: d }) => (
+                  <tr key={row} className="border-t border-gray-100">
+                    <td className="px-3 py-1.5 text-gray-400">{row}</td>
                     <td className="px-3 py-1.5">
-                      {d.name
-                        ? <span className="font-medium text-gray-800">{d.name}</span>
-                        : <span className="text-red-500 italic">ว่าง</span>
-                      }
+                      <span className="font-medium text-gray-800">{d.name}</span>
                       {d.generic_name && <div className="text-gray-400 text-[11px] truncate max-w-[240px]">{d.generic_name}</div>}
                     </td>
+                    <td className="px-3 py-1.5 text-gray-600">{d.type}</td>
                     <td className="px-3 py-1.5 text-right text-gray-700">฿{d.sell_price.toLocaleString()}</td>
-                    <td className={`px-3 py-1.5 text-right ${d.stock > 0 ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>
-                      {d.stock}
-                    </td>
+                    <td className={`px-3 py-1.5 text-right ${d.stock > 0 ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>{d.stock}</td>
                     <td className="px-3 py-1.5 text-gray-400 font-mono">{d.barcode || '—'}</td>
                   </tr>
                 ))}
@@ -248,7 +201,7 @@ export default function ImportJsonModal({ onClose, onImported }: Props) {
               ← เลือกไฟล์ใหม่
             </Button>
             <Button className="flex-1" onClick={handleImport} disabled={loading}>
-              {loading ? 'กำลังนำเข้า…' : `นำเข้า ${drugs.length.toLocaleString()} รายการ`}
+              {loading ? 'กำลังนำเข้า…' : `นำเข้า ${lines.length.toLocaleString()} รายการ`}
             </Button>
           </div>
         </div>
@@ -257,6 +210,8 @@ export default function ImportJsonModal({ onClose, onImported }: Props) {
   }
 
   // ── RESULT ────────────────────────────────────────────────────────
+  const imported = outcome?.imported ?? 0
+  const errors = outcome?.errors ?? []
   return (
     <Modal title="ผลการนำเข้า" onClose={onClose}>
       <div className="space-y-4">
@@ -271,12 +226,19 @@ export default function ImportJsonModal({ onClose, onImported }: Props) {
           </div>
         </div>
 
+        {outcome?.failure != null && (
+          <div role="alert" className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+            การนำเข้าหยุดกลางทาง: {errorText(outcome.failure)} — ยังไม่ได้ส่ง {outcome.notSent.toLocaleString()} รายการ
+            (รายการที่นำเข้าสำเร็จแล้วไม่ต้องนำเข้าซ้ำ)
+          </div>
+        )}
+
         {errors.length > 0 && (
           <div className="overflow-auto max-h-56 rounded-lg border border-red-100">
             <table className="w-full text-xs">
               <thead className="bg-red-50 sticky top-0">
                 <tr>
-                  <th className="text-left px-3 py-2 font-medium text-red-700">#</th>
+                  <th className="text-left px-3 py-2 font-medium text-red-700">แถว</th>
                   <th className="text-left px-3 py-2 font-medium text-red-700">ชื่อยา</th>
                   <th className="text-left px-3 py-2 font-medium text-red-700">สาเหตุ</th>
                 </tr>
@@ -296,7 +258,7 @@ export default function ImportJsonModal({ onClose, onImported }: Props) {
 
         <div className="flex gap-2">
           {imported > 0 && (
-            <Button variant="secondary" className="flex-1" onClick={() => { setStep('idle'); setDrugs([]); setErrors([]); setImported(0) }}>
+            <Button variant="secondary" className="flex-1" onClick={startOver}>
               นำเข้าเพิ่มเติม
             </Button>
           )}
