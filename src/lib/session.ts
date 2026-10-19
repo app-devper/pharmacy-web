@@ -28,6 +28,13 @@ export interface SessionDeps {
   /** um-api base URL. */
   umBase: string
   now?: () => number
+  /** Runs a passkey login ceremony (navigator.credentials.get in the app). */
+  passkeys?: PasskeyCeremony
+}
+
+/** Answers UM's passkey login options with the authenticator's assertion as JSON. */
+export interface PasskeyCeremony {
+  get(options: unknown): Promise<unknown>
 }
 
 /** How um-api answered a session check. */
@@ -67,7 +74,7 @@ function tokenExpiry(token: string): number | null {
  * - um-api being unreachable (offline, 5xx) is not a refusal: the cashier
  *   stays signed in with the last confirmed user, so the POS works offline.
  */
-export function createSession({ storage, fetch, umBase, now = Date.now }: SessionDeps) {
+export function createSession({ storage, fetch, umBase, now = Date.now, passkeys }: SessionDeps) {
   const listeners = new Set<Listener>()
   const notify = (user: SessionUser | null) => listeners.forEach((l) => l(user))
 
@@ -160,6 +167,16 @@ export function createSession({ storage, fetch, umBase, now = Date.now }: Sessio
     }
   }
 
+  async function begin(accessToken: string): Promise<SessionUser> {
+    storage().setItem(TOKEN_KEY, accessToken)
+    try {
+      return remember(await request<SessionUser>(`${umBase}/api/um/v1/user/info`))
+    } catch (e) {
+      end()
+      throw e
+    }
+  }
+
   return {
     token,
     cachedUser,
@@ -185,13 +202,24 @@ export function createSession({ storage, fetch, umBase, now = Date.now }: Sessio
         { method: 'POST', body: JSON.stringify({ username, password, system }) },
         { auth: false },
       )
-      storage().setItem(TOKEN_KEY, data.accessToken)
-      try {
-        return remember(await request<SessionUser>(`${umBase}/api/um/v1/user/info`))
-      } catch (e) {
-        end()
-        throw e
-      }
+      return begin(data.accessToken)
+    },
+
+    /** Signs in with a passkey on the system; UM applies the same rules as a password login. */
+    async loginWithPasskey(system: string): Promise<SessionUser> {
+      if (!passkeys) throw new Error('passkeys are not available')
+      const options = await request<{ ceremonyId: string }>(
+        `${umBase}/api/um/v1/auth/passkey/login/options`,
+        { method: 'POST', body: JSON.stringify({ system }) },
+        { auth: false },
+      )
+      const credential = await passkeys.get(options)
+      const data = await request<{ accessToken: string }>(
+        `${umBase}/api/um/v1/auth/passkey/login`,
+        { method: 'POST', body: JSON.stringify({ ceremonyId: options.ceremonyId, credential }) },
+        { auth: false },
+      )
+      return begin(data.accessToken)
     },
 
     async logout(): Promise<void> {

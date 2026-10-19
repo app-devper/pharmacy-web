@@ -28,7 +28,7 @@ type Route = (url: string, init?: RequestInit) => Response | Promise<Response>
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 const offline: Route = () => { throw new TypeError('Failed to fetch') }
 
-function setup(seed: Record<string, string>, route: Route) {
+function setup(seed: Record<string, string>, route: Route, passkey: (options: unknown) => Promise<unknown> = async () => ({ id: 'cred' })) {
   const store = memoryStorage(seed)
   const calls: string[] = []
   const heard: (SessionUser | null)[] = []
@@ -37,6 +37,7 @@ function setup(seed: Record<string, string>, route: Route) {
     fetch: async (url, init) => { calls.push(url); return route(url, init) },
     umBase: UM,
     now: () => NOW,
+    passkeys: { get: passkey },
   })
   session.subscribe((u) => heard.push(u))
   return { store, calls, heard, session }
@@ -137,5 +138,39 @@ describe('session', () => {
     await session.logout()
     expect(store.data.size).toBe(0)
     expect(heard).toEqual([null])
+  })
+
+  describe('passkey login', () => {
+    const options = { ceremonyId: 'c1', options: { publicKey: { challenge: 'x' } } }
+
+    it('answers the ceremony UM issued for the system and signs in', async () => {
+      const bodies: Record<string, unknown> = {}
+      const seen: unknown[] = []
+      const { session, store } = setup({}, (url, init) => {
+        if (init?.body) bodies[url] = JSON.parse(String(init.body))
+        if (url.endsWith('/auth/passkey/login/options')) return json(options)
+        if (url.endsWith('/auth/passkey/login')) return json({ accessToken: LIVE })
+        return json(cashier)
+      }, async (o) => { seen.push(o); return { id: 'cred' } })
+      expect(await session.loginWithPasskey('PHARMACY')).toEqual(cashier)
+      expect(bodies[`${UM}/api/um/v1/auth/passkey/login/options`]).toEqual({ system: 'PHARMACY' })
+      expect(seen).toEqual([options])
+      expect(bodies[`${UM}/api/um/v1/auth/passkey/login`]).toEqual({ ceremonyId: 'c1', credential: { id: 'cred' } })
+      expect(store.data.get('token')).toBe(LIVE)
+    })
+
+    it('keeps nobody signed in when the prompt is dismissed', async () => {
+      const { session, store, calls } = setup({}, () => json(options), async () => { throw new DOMException('dismissed', 'NotAllowedError') })
+      await expect(session.loginWithPasskey('PHARMACY')).rejects.toThrow()
+      expect(store.data.has('token')).toBe(false)
+      expect(calls.some((c) => c.endsWith('/auth/passkey/login'))).toBe(false)
+    })
+
+    it('surfaces a rejected passkey as an ApiError without a token', async () => {
+      const { session, store } = setup({}, (url) =>
+        url.endsWith('/options') ? json(options) : json({ code: 'UM-401-005', message: 'passkey not accepted' }, 401))
+      await expect(session.loginWithPasskey('PHARMACY')).rejects.toBeInstanceOf(ApiError)
+      expect(store.data.has('token')).toBe(false)
+    })
   })
 })
