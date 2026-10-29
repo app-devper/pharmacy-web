@@ -173,4 +173,42 @@ describe('session', () => {
       expect(store.data.has('token')).toBe(false)
     })
   })
+
+  describe('continueFromUm', () => {
+    const bodies: Record<string, unknown> = {}
+    const route = (system: string): Route => (url, init) => {
+      if (init?.body) bodies[url] = JSON.parse(String(init.body))
+      if (url.endsWith('/auth/exchange')) return json({ accessToken: LIVE })
+      if (url.endsWith('/auth/verify')) return json({ system })
+      return json(cashier)
+    }
+
+    it('starts the session from the ticket UM handed over', async () => {
+      const { session, store } = setup({}, route('PHARMACY'))
+      expect(await session.continueFromUm('t-1', 'PHARMACY')).toEqual(cashier)
+      expect(bodies[`${UM}/api/um/v1/auth/exchange`]).toEqual({ ticket: 't-1' })
+      expect(store.data.get('token')).toBe(LIVE)
+    })
+
+    it('refuses a ticket for another system and keeps nobody signed in', async () => {
+      const { session, store } = setup({}, route('PORT'))
+      await expect(session.continueFromUm('t-1', 'PHARMACY')).rejects.toThrow()
+      expect(store.data.has('token')).toBe(false)
+    })
+
+    it('surfaces an expired ticket as an ApiError without a token', async () => {
+      const { session, store } = setup({}, () => json({ code: 'UM-401-002', message: 'ticket invalid or expired' }, 401))
+      await expect(session.continueFromUm('old', 'PHARMACY')).rejects.toBeInstanceOf(ApiError)
+      expect(store.data.has('token')).toBe(false)
+    })
+
+    it('ends the session already in this browser before using the ticket', async () => {
+      const { session, store, heard } = setup(signedIn, () => json({ code: 'UM-401-002', message: 'ticket invalid or expired' }, 401))
+      await expect(session.continueFromUm('old', 'PHARMACY')).rejects.toBeInstanceOf(ApiError)
+      expect(store.data.has('token')).toBe(false)
+      expect(store.data.has('pharmacy.parkedCarts')).toBe(false)
+      expect(heard).toEqual([null])
+    })
+  })
 })
+

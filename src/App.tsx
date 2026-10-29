@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Layout from './components/layout/Layout'
 import LoginPage from './pages/LoginPage'
+import SsoPage from './pages/SsoPage'
 import SellPage from './pages/SellPage'
 import StockPage from './pages/StockPage'
 import CustomersPage from './pages/CustomersPage'
@@ -57,6 +58,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="login" element={<LoginPage />} />
+        <Route path="sso" element={<SsoPage />} />
         <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route index element={<Navigate to="/sell" replace />} />
           <Route path="sell" element={<PageRoute page="/sell"><SellPage /></PageRoute>} />
