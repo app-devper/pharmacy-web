@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { passkeyLoginMessage, passkeysSupported } from '../lib/passkey'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function LoginPage() {
-  const { login, user } = useAuth()
+  const { login, loginWithPasskey, user } = useAuth()
+  const [passkeyAvailable] = useState(passkeysSupported)
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -21,6 +23,19 @@ export default function LoginPage() {
       navigate('/', { replace: true })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'เข้าสู่ระบบไม่สำเร็จ')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePasskey = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      await loginWithPasskey('PHARMACY')
+      navigate('/', { replace: true })
+    } catch (err: unknown) {
+      setError(passkeyLoginMessage(err))
     } finally {
       setLoading(false)
     }
@@ -86,6 +101,26 @@ export default function LoginPage() {
               {loading ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}
             </button>
           </form>
+          {passkeyAvailable && (
+            <div className="mt-4 space-y-4">
+              <div className="flex items-center gap-3 text-xs text-gray-400">
+                <span className="h-px flex-1 bg-gray-200" />
+                หรือ
+                <span className="h-px flex-1 bg-gray-200" />
+              </div>
+              <button
+                type="button"
+                onClick={handlePasskey}
+                disabled={loading}
+                className="w-full py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-800 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                เข้าสู่ระบบด้วย passkey
+              </button>
+              <p className="text-xs text-center text-gray-500">
+                เพิ่ม passkey ได้ที่หน้าโปรไฟล์ของระบบจัดการผู้ใช้ (um.devper.app)
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

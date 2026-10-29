@@ -1,3 +1,4 @@
+import { browserPasskeys } from '../lib/passkey'
 import { createSession } from '../lib/session'
 
 export {
@@ -16,6 +17,7 @@ export const session = createSession({
   storage: () => localStorage,
   fetch: (url, init) => fetch(url, init),
   umBase: UM_API,
+  passkeys: browserPasskeys,
 })
 
 /** A pharmacy-api request through the session. */

@@ -9,6 +9,7 @@ interface AuthContextValue {
   user: SessionUser | null
   loading: boolean
   login: (username: string, password: string, system: string) => Promise<void>
+  loginWithPasskey: (system: string) => Promise<void>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
 }
@@ -46,6 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await session.login(username, password, system)
   }, [])
 
+  const loginWithPasskey = useCallback(async (system: string) => {
+    await session.loginWithPasskey(system)
+  }, [])
+
   const logout = useCallback(() => session.logout(), [])
 
   const refreshUser = useCallback(async () => {
@@ -53,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithPasskey, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )
