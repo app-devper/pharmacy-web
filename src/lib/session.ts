@@ -32,9 +32,21 @@ export interface SessionDeps {
   passkeys?: PasskeyCeremony
 }
 
+/** How to ask for a passkey: in the browser's modal prompt, or offered in the username field (conditional). */
+export interface PasskeyRequest {
+  conditional?: boolean
+  signal?: AbortSignal
+}
+
+/** A passkey login: how to prompt, and the username typed on the form when the passkey answers. */
+export interface PasskeyLogin extends PasskeyRequest {
+  /** Read when the passkey answers; UM refuses a passkey that belongs to a different account. */
+  typedUsername?: () => string
+}
+
 /** Answers UM's passkey login options with the authenticator's assertion as JSON. */
 export interface PasskeyCeremony {
-  get(options: unknown): Promise<unknown>
+  get(options: unknown, request?: PasskeyRequest): Promise<unknown>
 }
 
 /** How um-api answered a session check. */
@@ -206,17 +218,18 @@ export function createSession({ storage, fetch, umBase, now = Date.now, passkeys
     },
 
     /** Signs in with a passkey on the system; UM applies the same rules as a password login. */
-    async loginWithPasskey(system: string): Promise<SessionUser> {
+    async loginWithPasskey(system: string, login: PasskeyLogin = {}): Promise<SessionUser> {
       if (!passkeys) throw new Error('passkeys are not available')
       const options = await request<{ ceremonyId: string }>(
         `${umBase}/api/um/v1/auth/passkey/login/options`,
         { method: 'POST', body: JSON.stringify({ system }) },
         { auth: false },
       )
-      const credential = await passkeys.get(options)
+      const credential = await passkeys.get(options, login)
+      const username = login.typedUsername?.().trim()
       const data = await request<{ accessToken: string }>(
         `${umBase}/api/um/v1/auth/passkey/login`,
-        { method: 'POST', body: JSON.stringify({ ceremonyId: options.ceremonyId, credential }) },
+        { method: 'POST', body: JSON.stringify({ ceremonyId: options.ceremonyId, credential, ...(username ? { username } : {}) }) },
         { auth: false },
       )
       return begin(data.accessToken)
