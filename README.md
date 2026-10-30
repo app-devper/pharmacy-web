@@ -208,3 +208,11 @@ firebase target:apply hosting <TARGET_NAME> <SITE_ID>
 - Queue หายถ้า user clear IDB / site data
 - Lot snapshot เก็บใน IDB ตาม SaleItemInput — carry through sync · backend compare actual FEFO vs snapshot → set `lot_mismatch`
 - หาก Multiple offline sales ของยาเดียวกัน · stock ท้องถิ่นลดจาก optimistic · sync ทีละอัน · stock sync หลังสุดจะ override
+
+## Agent skills
+
+The generic Claude Code / Codex skills (`coding-standards`, `tdd-workflow`,
+`grilling`, …) and the `ecc` rules are not in this repo. Every app-devper
+repo shares them from [app-devper/agent-skills](https://github.com/app-devper/agent-skills):
+clone it and run its `install.sh` once per machine. Only the skills about this
+repo live in `.agents/skills/`: `dev-flow`, `git-flow`, `pr`.
