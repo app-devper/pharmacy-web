@@ -28,7 +28,7 @@ type Route = (url: string, init?: RequestInit) => Response | Promise<Response>
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 const offline: Route = () => { throw new TypeError('Failed to fetch') }
 
-function setup(seed: Record<string, string>, route: Route, passkey: (options: unknown) => Promise<unknown> = async () => ({ id: 'cred' })) {
+function setup(seed: Record<string, string>, route: Route, passkey: (options: unknown, request?: unknown) => Promise<unknown> = async () => ({ id: 'cred' })) {
   const store = memoryStorage(seed)
   const calls: string[] = []
   const heard: (SessionUser | null)[] = []
@@ -157,6 +157,23 @@ describe('session', () => {
       expect(seen).toEqual([options])
       expect(bodies[`${UM}/api/um/v1/auth/passkey/login`]).toEqual({ ceremonyId: 'c1', credential: { id: 'cred' } })
       expect(store.data.get('token')).toBe(LIVE)
+    })
+
+    it('sends the username typed when the passkey answers, and the request to the authenticator', async () => {
+      const bodies: Record<string, unknown> = {}
+      const requests: unknown[] = []
+      const { session } = setup({}, (url, init) => {
+        if (init?.body) bodies[url] = JSON.parse(String(init.body))
+        if (url.endsWith('/auth/passkey/login/options')) return json(options)
+        if (url.endsWith('/auth/passkey/login')) return json({ accessToken: LIVE })
+        return json(cashier)
+      }, async (_o, request) => { requests.push(request); return { id: 'cred' } })
+      let typed = ''
+      const login = session.loginWithPasskey('PHARMACY', { conditional: true, typedUsername: () => typed })
+      typed = ' somchai '
+      expect(await login).toEqual(cashier)
+      expect(requests).toEqual([{ conditional: true, typedUsername: expect.any(Function) }])
+      expect(bodies[`${UM}/api/um/v1/auth/passkey/login`]).toEqual({ ceremonyId: 'c1', credential: { id: 'cred' }, username: 'somchai' })
     })
 
     it('keeps nobody signed in when the prompt is dismissed', async () => {

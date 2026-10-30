@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { passkeyLoginMessage, passkeysSupported } from '../lib/passkey'
+import { usePasskeyAutofill, type AutofillRequest } from '../lib/usePasskeyAutofill'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
@@ -11,6 +12,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  // The passkey may answer long after its request started; send the username as typed then.
+  const typedUsername = useRef('')
+  useEffect(() => {
+    typedUsername.current = username
+  }, [username])
+
+  const autofillLogin = useCallback(async (request: AutofillRequest) => {
+    await loginWithPasskey('PHARMACY', { ...request, typedUsername: () => typedUsername.current })
+    navigate('/', { replace: true })
+  }, [loginWithPasskey, navigate])
+  const showPasskeyError = useCallback((err: unknown) => setError(passkeyLoginMessage(err)), [])
+  const autofill = usePasskeyAutofill(passkeyAvailable, autofillLogin, showPasskeyError)
 
   if (user) return <Navigate to="/" replace />
 
@@ -29,13 +42,15 @@ export default function LoginPage() {
   }
 
   const handlePasskey = async () => {
+    autofill.pause() // a browser runs one passkey request at a time
     setError('')
     setLoading(true)
     try {
-      await loginWithPasskey('PHARMACY')
+      await loginWithPasskey('PHARMACY', { typedUsername: () => typedUsername.current })
       navigate('/', { replace: true })
     } catch (err: unknown) {
       setError(passkeyLoginMessage(err))
+      autofill.resume()
     } finally {
       setLoading(false)
     }
@@ -68,7 +83,7 @@ export default function LoginPage() {
               <input
                 type="text"
                 name="username"
-                autoComplete="username"
+                autoComplete="username webauthn"
                 spellCheck={false}
                 value={username}
                 onChange={e => setUsername(e.target.value)}
