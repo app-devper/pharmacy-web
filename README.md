@@ -82,7 +82,13 @@ frontend/
 
 ### ข้อกำหนด
 
-- Node.js 18+
+- Node.js 20+
+
+### Test
+
+```bash
+npm test   # vitest run (IndexedDB ผ่าน fake-indexeddb)
+```
 
 ### ตั้งค่า Environment
 
@@ -177,9 +183,15 @@ firebase target:apply hosting <TARGET_NAME> <SITE_ID>
 | Layer | ไฟล์ | หน้าที่ |
 |------|------|---------|
 | PWA config | `vite.config.ts` | `vite-plugin-pwa` · NetworkFirst 24h cache สำหรับ `/api/drugs`, `/api/customers` |
+| Session | `lib/session.ts` | token · request step ของทั้ง pharmacy-api และ um-api (`apiFetch` / `umFetch` ใน `api/client.ts`) · 401 ของ token ปัจจุบัน → จบ session + ล้าง `token`, `pharmacy.sessionUser`, `pharmacy.parkedCarts` แล้ว router พาไปหน้า login (ไม่ hard-navigate กลาง sync) · um-api ติดต่อไม่ได้หรือ 5xx ≠ ถูกปฏิเสธ → reload ตอนออฟไลน์ยังอยู่ในระบบด้วย user ล่าสุดที่ยืนยันแล้ว · `SessionScoped` remount cart เมื่อเปลี่ยนผู้ใช้ |
 | Online detection | `hooks/useOnlineStatus.ts` | `navigator.onLine` + event listener |
-| Queue | `lib/offlineQueue.ts` | IndexedDB (idb v8) · store `pending_sales` · `enqueueSale` / `getPendingSales` / `markSaleError` / `removePendingSale` |
-| Offline-aware API | `api/sales.ts` | `createSale` — offline → `enqueueSale` + return receipt ชั่วคราว `OFFLINE-xxx` · `_createSaleRaw` — direct (ใช้โดย sync loop) |
+| Sale submission | `lib/pendingSales.ts` | `submitSale` (checkout) และ `syncAll` / `retry` / `abandon` (replay) ส่งผ่าน transport เดียว จัดประเภทความล้มเหลวด้วย `isTemporaryFailure` ตัวเดียว (network, identity 503, 5xx, 401, 403 → เก็บรอ; อื่น ๆ → server ปฏิเสธ) · `SaleAttempt` ให้ `client_request_id` เดียวต่อบิล ใช้ซ้ำทุกครั้งที่ลองใหม่ (pharmacy-api ADR-0002) · ผลเป็น `{status: 'confirmed', sale}` หรือ `{status: 'pending', receipt}` |
+| Reference lists | `lib/referenceList.ts` · `hooks/referenceLists.ts` | รายชื่อลูกค้า / ซัพพลายเออร์ชุดเดียวที่หน้า list และตัวเลือก (เลือกลูกค้าตอนขาย, ซัพพลายเออร์ในใบรับสินค้า) อ่านร่วมกัน · เพิ่ม/แก้/ลบแล้ว `reload()` ให้ทุกจอเห็นพร้อมกัน · เปลี่ยนผู้ใช้หรือออกจากระบบ → `forget()` ไม่ให้รายชื่อของคนก่อนค้างในแท็บ |
+| Sale corrections | `lib/saleCorrection.ts` · `hooks/useSaleCorrections.ts` | ยกเลิกบิล / คืนยา: ส่งคำสั่ง, คืน `client_request_id` เดิมเมื่อลองคืนรายการเดิมซ้ำ (pharmacy-api ADR-0002) แล้วเรียก `stockChanged` เอง — ผู้เรียกแค่วาดหน้าจอใหม่ ไม่ว่าจะเปิดบิลจากประวัติการขายหรือประวัติลูกค้า |
+| Drug import | `lib/drugImport.ts` · `components/stock/importFormats.ts` · `DrugImportModal` | นำเข้ายาหลายรายการ: ทุกรูปแบบไฟล์ (Excel template, aigx JSON) ตรวจทุกแถวด้วย `draftProblems` เหมือนกัน · ส่งทีละ 1,000 รายการ (เพดานของ pharmacy-api) · แถวที่ถูกปฏิเสธบอกด้วยเลขแถวในไฟล์ · ถ้าล้มกลางทาง ยอดที่นำเข้าแล้วยังนับและ stock ถูก refresh · เพิ่มรูปแบบไฟล์ใหม่ = เพิ่ม `DrugImportFormat` หนึ่งตัว |
+| Cart session | `lib/cartSession.ts` · `context/CartContext.tsx` | ตะกร้าที่กำลังขาย + ตะกร้าที่พักไว้ 5 แท็บ เป็น state transition ล้วน (เพิ่ม, เปลี่ยนจำนวน, ส่วนลด, เลือกลูกค้า, สลับ/ทิ้งแท็บ, load/save) · ส่วนลดรายการไม่เกินราคาของ tier ปัจจุบันเสมอ แม้เปลี่ยนลูกค้าทีหลัง · `CartContext` แค่ถือ session และบันทึกลง localStorage |
+| Queue store | `lib/offlineQueue.ts` | IndexedDB (idb v8) · store `pending_sales` · ใช้โดย `lib/pendingSales` เท่านั้น |
+| HTTP adapter | `api/salesTransport.ts` | `postSale` / `abandonQueued` — network เท่านั้น ไม่ queue |
 | Auto-sync | `hooks/useOfflineSync.ts` | Watch online state → replay queue · นับ `pending` + `failed` · เรียก `reloadDrugs()` หลัง sync สำเร็จเพื่อ reconcile optimistic stock |
 | UI indicator | `components/layout/NetworkStatus.tsx` | Topbar pill: 🔴 ออฟไลน์ / 🟡 รอซิงค์ N / 🟠 กำลังซิงค์ / 🔴 ซิงค์ล้มเหลว N (click → retry) |
 | Conflict center | `pages/OfflineSyncPage.tsx` | หน้า `/offline-sync` แสดง queue ใน IndexedDB, error ล่าสุด, retry ทั้งหมด, cancel รายการที่ไม่ต้องการ sync |
@@ -187,8 +199,8 @@ firebase target:apply hosting <TARGET_NAME> <SITE_ID>
 | Lot snapshot | `types/sale.ts` → `SaleItemInput.lot_snapshot` | Cart แนบ `drug.next_lot` ต่อ item · backend `lot_mismatch` flag เมื่อ sync หลัง FEFO drift |
 
 **Flow:**
-1. Browser offline → DrugGrid ใช้ cache (NetworkFirst fallback) → cart ทำงานตามปกติ
-2. Checkout → `navigator.onLine === false` → enqueue ใน IDB + optimistic `patchStocks()` → cashier เห็นเหมือนขายสำเร็จปกติ
+1. Browser offline (reload ได้ ถ้า token ยังไม่หมดอายุ) → DrugGrid ใช้ cache (NetworkFirst fallback) → cart ทำงานตามปกติ
+2. Checkout → offline หรือส่งไม่สำเร็จชั่วคราว (เช่น 502) → `submitSale` เก็บใน IDB ด้วย request id เดิม + optimistic `patchStocks()` → cashier เห็นเหมือนขายสำเร็จปกติ
 3. Browser online → `useOfflineSync` auto-replay queue → success → remove from IDB · fail → `markSaleError` + persistent red pill
 4. หลัง sync สำเร็จ → `reloadDrugs()` → server authoritative stock override optimistic
 

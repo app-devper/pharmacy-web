@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider, SessionScoped } from './context/AuthContext'
 import { AppProvider } from './context/AppContext'
 import { CartProvider } from './context/CartContext'
 import { DrugsProvider } from './context/DrugsContext'
@@ -16,9 +16,11 @@ createRoot(document.getElementById('root')!).render(
       <SettingsProvider>
         <DrugsProvider>
           <AppProvider>
-            <CartProvider>
-              <App />
-            </CartProvider>
+            <SessionScoped>
+              <CartProvider>
+                <App />
+              </CartProvider>
+            </SessionScoped>
           </AppProvider>
         </DrugsProvider>
       </SettingsProvider>

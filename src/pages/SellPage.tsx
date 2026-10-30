@@ -15,7 +15,7 @@ import KySaleModal, { type CheckoutData } from '../components/sell/KySaleModal'
 import AddCustomerModal from '../components/customers/AddCustomerModal'
 
 export default function SellPage() {
-  const { drugs, loading, reload, patchStocks } = useDrugs()
+  const { drugs, loading } = useDrugs()
   const { reload: reloadCustomers } = useCustomers()
   const { addToCart, clearCart, items: cartItems } = useCart()
   const showToast = useToast()
@@ -99,7 +99,6 @@ export default function SellPage() {
         <div className="hidden md:block">
           <Cart
             onCheckoutDone={handleCheckoutDone}
-            onReloadDrugs={reload}
             onAddCustomer={() => setShowAddCustomer(true)}
             onKyRequired={setKyData}
           />
@@ -120,8 +119,7 @@ export default function SellPage() {
           >
             <Cart
               onCheckoutDone={(r, i, t) => { setCartOpen(false); handleCheckoutDone(r, i, t) }}
-              onReloadDrugs={reload}
-              onAddCustomer={() => setShowAddCustomer(true)}
+                onAddCustomer={() => setShowAddCustomer(true)}
               onKyRequired={(d) => { setCartOpen(false); setKyData(d) }}
             />
           </div>
@@ -156,11 +154,6 @@ export default function SellPage() {
           onDone={(result, cartItems, tier) => {
             setKyData(null)
             setReceipt({ result, items: cartItems, tier })
-            if (result.stock_updates && result.stock_updates.length > 0) {
-              patchStocks(result.stock_updates)
-            } else {
-              reload()
-            }
           }}
           onCancel={() => setKyData(null)}
         />

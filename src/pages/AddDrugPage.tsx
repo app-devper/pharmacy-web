@@ -6,12 +6,13 @@ import { useToast } from '../hooks/useToast'
 import { useDrugs } from '../hooks/useDrugs'
 import { DRUG_TYPES, DRUG_UNITS, KY_REPORT_OPTIONS } from '../types/drug'
 import { genLotNumber } from '../utils/lot'
+import { draftProblems, newDrugInput } from '../lib/drugDraft'
 import { todayBangkok, daysAgoBangkokStr } from '../utils/date'
 
 export default function AddDrugPage() {
   const navigate = useNavigate()
   const showToast = useToast()
-  const { reload: reloadDrugs } = useDrugs()
+  const { stockChanged } = useDrugs()
 
   const [form, setForm] = useState({
     name: '', generic_name: '', type: 'ยาสามัญ', strength: '', barcode: '',
@@ -44,37 +45,14 @@ export default function AddDrugPage() {
     )
 
   const handleSave = async () => {
-    if (!form.name) { showToast('กรุณากรอกชื่อยา', 'error'); return }
-    const stockQty = +form.stock || 0
-    if (stockQty > 0) {
-      if (!lot.lot_number) { showToast('กรุณากรอกเลขล็อต', 'error'); return }
-      if (!lot.expiry_date) { showToast('กรุณาระบุวันหมดอายุ', 'error'); return }
-    }
+    const draft = { ...form, report_types: reportTypes }
+    const [problem] = draftProblems(draft, { lot })
+    if (problem) { showToast(problem, 'error'); return }
     setLoading(true)
     try {
-      const retail = +form.retail || 0
-      await addDrug({
-        name: form.name, generic_name: form.generic_name,
-        type: form.type, strength: form.strength, barcode: form.barcode,
-        sell_price: retail, cost_price: +form.cost_price || 0,
-        stock: stockQty, min_stock: +form.min_stock || 0, reg_no: form.reg_no, unit: form.unit,
-        report_types: reportTypes,
-        // Only retail is set on creation. Extra tiers (ประจำ / ขายส่ง / custom)
-        // are added later in the Edit page.
-        prices: { retail },
-        ...(stockQty > 0 ? {
-          create_lot: {
-            lot_number: lot.lot_number,
-            expiry_date: lot.expiry_date,
-            import_date: lot.import_date || '',
-            cost_price: null,
-            sell_price: null,
-            quantity: stockQty,
-          }
-        } : {}),
-      })
+      await addDrug(newDrugInput(draft, { lot }))
       showToast('เพิ่มยาสำเร็จ')
-      reloadDrugs()
+      stockChanged()
       navigate('/stock')
     } catch (e: unknown) {
       showToast((e as Error).message, 'error')

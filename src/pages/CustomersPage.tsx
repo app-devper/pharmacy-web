@@ -1,33 +1,28 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import type { Customer } from '../types/customer'
-import { getCustomers } from '../api/customers'
+import { useCustomers } from '../hooks/useCustomers'
 import { useToast } from '../hooks/useToast'
+import { errorText } from '../lib/latest'
 import AddCustomerModal from '../components/customers/AddCustomerModal'
 import EditCustomerModal from '../components/customers/EditCustomerModal'
 import CustomerHistoryModal from '../components/customers/CustomerHistoryModal'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
-import { useIsManager } from '../hooks/useIsAdmin'
+import { useCan } from '../hooks/useCan'
 
 export default function CustomersPage() {
   const showToast = useToast()
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [loading, setLoading]     = useState(true)
+  const { customers, loading, error, reload } = useCustomers()
   const [search, setSearch]       = useState('')
 
-  const canEdit = useIsManager()
+  const canEdit = useCan('edit_customers')
   const [showAdd, setShowAdd]               = useState(false)
   const [editCustomer, setEditCustomer]     = useState<Customer | null>(null)
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try { setCustomers(await getCustomers()) }
-    catch (e: unknown) { showToast((e as Error).message, 'error') }
-    finally { setLoading(false) }
-  }, [showToast])
-
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (error) showToast(errorText(error), 'error')
+  }, [error, showToast])
 
   const filtered = customers.filter(c => {
     if (!search) return true
@@ -131,14 +126,14 @@ export default function CustomersPage() {
       {showAdd && (
         <AddCustomerModal
           onClose={() => setShowAdd(false)}
-          onSaved={() => { setShowAdd(false); load() }}
+          onSaved={() => { setShowAdd(false); reload() }}
         />
       )}
       {editCustomer && (
         <EditCustomerModal
           customer={editCustomer}
           onClose={() => setEditCustomer(null)}
-          onSaved={() => { setEditCustomer(null); load() }}
+          onSaved={() => { setEditCustomer(null); reload() }}
         />
       )}
       {historyCustomer && (

@@ -1,31 +1,31 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { useIsAdmin } from '../../hooks/useIsAdmin'
 import { useAuth } from '../../context/AuthContext'
-import { hasRole, type Role } from '../../lib/roles'
+import { canOpen, type Page } from '../../lib/access'
 import { useSettings } from '../../context/SettingsContext'
 
-// minRole mirrors the route guards in App.tsx and pharmacy-api's permissions.
-const mainItems: { to: string; icon: string; label: string; minRole: Role }[] = [
-  { to: '/sell',      icon: '🛒', label: 'หน้าขายยา',              minRole: 'USER'    },
-  { to: '/sales',     icon: '🧾', label: 'ประวัติการขาย',           minRole: 'USER'    },
-  { to: '/stock',     icon: '📦', label: 'สต็อกยา',                minRole: 'USER'    },
-  { to: '/stock-count', icon: '🧮', label: 'ตรวจนับสต็อก',          minRole: 'MANAGER' },
-  { to: '/labels',    icon: '🏷️', label: 'พิมพ์ฉลากบาร์โค้ด',       minRole: 'MANAGER' },
-  { to: '/expiry',    icon: '⏰', label: 'จัดการวันหมดอายุ',        minRole: 'MANAGER' },
-  { to: '/movements', icon: '📋', label: 'ความเคลื่อนไหวสต็อก',    minRole: 'USER'    },
-  { to: '/offline-sync', icon: '🔄', label: 'รายการค้างซิงค์',       minRole: 'USER'    },
-  { to: '/imports',   icon: '📥', label: 'นำเข้าสินค้า',            minRole: 'MANAGER' },
-  { to: '/suppliers', icon: '🏭', label: 'ซัพพลายเออร์',            minRole: 'MANAGER' },
-  { to: '/customers', icon: '👥', label: 'ลูกค้า',                  minRole: 'USER'    },
-  { to: '/report',    icon: '📊', label: 'รายงาน',                  minRole: 'MANAGER' },
-  { to: '/profit',    icon: '💰', label: 'กำไร',                    minRole: 'ADMIN'   },
-  { to: '/users',     icon: '🔐', label: 'จัดการผู้ใช้งาน',          minRole: 'ADMIN'   },
-  { to: '/settings',  icon: '⚙️', label: 'ตั้งค่าระบบ',              minRole: 'ADMIN'   },
-  { to: '/help',      icon: '📖', label: 'คู่มือการใช้งาน',           minRole: 'USER'    },
+// Each item shows when its page may be opened (lib/access, the same table
+// the route guards read).
+const mainItems: { to: Page; icon: string; label: string }[] = [
+  { to: '/sell',      icon: '🛒', label: 'หน้าขายยา' },
+  { to: '/sales',     icon: '🧾', label: 'ประวัติการขาย' },
+  { to: '/stock',     icon: '📦', label: 'สต็อกยา' },
+  { to: '/stock-count', icon: '🧮', label: 'ตรวจนับสต็อก' },
+  { to: '/labels',    icon: '🏷️', label: 'พิมพ์ฉลากบาร์โค้ด' },
+  { to: '/expiry',    icon: '⏰', label: 'จัดการวันหมดอายุ' },
+  { to: '/movements', icon: '📋', label: 'ความเคลื่อนไหวสต็อก' },
+  { to: '/offline-sync', icon: '🔄', label: 'รายการค้างซิงค์' },
+  { to: '/imports',   icon: '📥', label: 'นำเข้าสินค้า' },
+  { to: '/suppliers', icon: '🏭', label: 'ซัพพลายเออร์' },
+  { to: '/customers', icon: '👥', label: 'ลูกค้า' },
+  { to: '/report',    icon: '📊', label: 'รายงาน' },
+  { to: '/profit',    icon: '💰', label: 'กำไร' },
+  { to: '/users',     icon: '🔐', label: 'จัดการผู้ใช้งาน' },
+  { to: '/settings',  icon: '⚙️', label: 'ตั้งค่าระบบ' },
+  { to: '/help',      icon: '📖', label: 'คู่มือการใช้งาน' },
 ]
 
-const kyItems = [
+const kyItems: { to: Page; label: string }[] = [
   { to: '/ky9',  label: 'ขย.9' },
   { to: '/ky10', label: 'ขย.10' },
   { to: '/ky11', label: 'ขย.11' },
@@ -39,13 +39,13 @@ const linkClass = (isActive: boolean) =>
 
 export default function Sidebar() {
   const location = useLocation()
-  const isAdmin = useIsAdmin()
   const { user } = useAuth()
   const { settings } = useSettings()
   const kyActive = kyItems.some(k => location.pathname.startsWith(k.to))
   const [kyOpen, setKyOpen] = useState(kyActive)
 
-  const visibleItems = mainItems.filter(item => hasRole(user?.role, item.minRole))
+  const visibleItems = mainItems.filter(item => canOpen(user?.role, item.to))
+  const visibleKy = kyItems.filter(item => canOpen(user?.role, item.to))
   const shopName = settings.store.name || 'ร้านยา'
 
   return (
@@ -69,7 +69,7 @@ export default function Sidebar() {
         ))}
 
         {/* KY Forms group — ADMIN only */}
-        {isAdmin && (
+        {visibleKy.length > 0 && (
           <div className="mt-1">
             <button
               onClick={() => setKyOpen(o => !o)}
@@ -89,7 +89,7 @@ export default function Sidebar() {
 
             {kyOpen && (
               <div className="bg-slate-900/50">
-                {kyItems.map(item => (
+                {visibleKy.map(item => (
                   <NavLink
                     key={item.to}
                     to={item.to}

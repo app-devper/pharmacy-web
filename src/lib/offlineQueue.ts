@@ -1,6 +1,6 @@
+// The IndexedDB store of pending sales. Only lib/pendingSales uses it.
 import { openDB } from 'idb'
 import type { SaleInput } from '../types/sale'
-import { newRequestId } from './requestId'
 import type { KyRecord } from './kyRecords'
 
 export interface PendingSale {
@@ -36,15 +36,6 @@ const STORE      = 'pending_sales'
 
 // Singleton IDB connection
 let _db: Awaited<ReturnType<typeof openDB>> | null = null
-
-/**
- * Idempotency key for a sale, created before the first attempt so that a
- * retry after a lost response cannot record the sale twice: pharmacy-api
- * returns the existing sale for a repeated client_request_id.
- */
-export function newSaleRequestId(): string {
-  return newRequestId('sale')
-}
 
 function makeOfflineId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {

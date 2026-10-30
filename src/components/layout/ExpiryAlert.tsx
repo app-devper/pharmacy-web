@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { getExpiringLots, type ExpiringLot } from '../../api/lots'
 import { useSettings } from '../../context/SettingsContext'
+import { useServerRead } from '../../hooks/useServerRead'
 
 type Group = { label: string; color: string; dot: string; items: ExpiringLot[] }
 
@@ -26,18 +27,14 @@ function daysLabel(d: number): string {
 
 export default function ExpiryAlert() {
   const { settings } = useSettings()
-  const [lots, setLots]     = useState<ExpiringLot[]>([])
   const [open, setOpen]     = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  // Use tenant's expiring_days setting; re-fetch when it changes.
+  // Follows the tenant's expiring_days setting and every stock change; a
+  // failure keeps the last list (the bell is decorative, so no toast).
   const expiringDays = settings.stock.expiring_days || 60
-  useEffect(() => {
-    const refresh = () => getExpiringLots(expiringDays).then(setLots).catch(() => {})
-    refresh()
-    window.addEventListener('pharmacy:stock-changed', refresh)
-    return () => window.removeEventListener('pharmacy:stock-changed', refresh)
-  }, [expiringDays])
+  const read = useCallback(() => getExpiringLots(expiringDays), [expiringDays])
+  const { data: lots } = useServerRead<ExpiringLot[]>(read, [], { followStock: true, quiet: true })
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

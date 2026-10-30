@@ -1,13 +1,14 @@
 import { useState, useRef } from 'react'
-import * as XLSX from 'xlsx'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
-import { bulkImportDrugs, type BulkImportRowError } from '../../api/drugs'
-import { downloadDrugTemplate } from '../../utils/drugTemplate'
+import { bulkImportDrugs } from '../../api/drugs'
 import { useToast } from '../../hooks/useToast'
-import type { DrugInput } from '../../types/drug'
+import { errorText } from '../../lib/latest'
+import { prepareImport, runImport, type ImportLine, type ImportOutcome } from '../../lib/drugImport'
+import type { DrugImportFormat } from './importFormats'
 
 interface Props {
+  format: DrugImportFormat
   onClose: () => void
   onImported: () => void
 }
@@ -16,82 +17,39 @@ type Step = 'idle' | 'preview' | 'result'
 
 const PREVIEW_LIMIT = 20
 
-// Column mapping — must stay in sync with downloadDrugTemplate()
-// A=name, B=generic_name, C=type, D=strength, E=barcode,
-// F=cost_price, G=sell_price, H=stock, I=min_stock,
-// J=reg_no, K=unit, L=report_types
-function rowToDrugInput(r: unknown[]): DrugInput {
-  const str = (v: unknown) => (v != null && v !== '' ? String(v).trim() : '')
-  const num = (v: unknown) => Number(v) || 0
-  return {
-    name:         str(r[0]),
-    generic_name: str(r[1]),
-    type:         str(r[2]) || 'ยาสามัญ',
-    strength:     str(r[3]),
-    barcode:      str(r[4]),
-    cost_price:   num(r[5]),
-    sell_price:   num(r[6]),
-    stock:        num(r[7]),
-    min_stock:    num(r[8]),
-    reg_no:       str(r[9]),
-    unit:         str(r[10]) || 'เม็ด',
-    report_types: str(r[11])
-      ? str(r[11]).split(',').map(s => s.trim()).filter(Boolean)
-      : [],
-  }
-}
-
-function parseExcelFile(file: File): Promise<DrugInput[]> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = e => {
-      try {
-        const data = new Uint8Array(e.target!.result as ArrayBuffer)
-        const wb = XLSX.read(data, { type: 'array' })
-        const ws = wb.Sheets[wb.SheetNames[0]]
-        const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 }) as unknown[][]
-        // row 0 = headers, rows 1+ = data; skip rows where column A is empty
-        const drugs = rows
-          .slice(1)
-          .filter(r => r[0] != null && String(r[0]).trim() !== '')
-          .map(rowToDrugInput)
-        resolve(drugs)
-      } catch (err) {
-        reject(err)
-      }
-    }
-    reader.onerror = () => reject(new Error('อ่านไฟล์ไม่สำเร็จ'))
-    reader.readAsArrayBuffer(file)
-  })
-}
-
-export default function ImportDrugsModal({ onClose, onImported }: Props) {
+/** Bulk drug import for one file format (lib/drugImport does the work). */
+export default function DrugImportModal({ format, onClose, onImported }: Props) {
   const showToast = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState<Step>('idle')
-  const [drugs, setDrugs] = useState<DrugInput[]>([])
+  const [lines, setLines] = useState<ImportLine[]>([])
   const [fileName, setFileName] = useState('')
   const [loading, setLoading] = useState(false)
-  const [imported, setImported] = useState(0)
-  const [errors, setErrors] = useState<BulkImportRowError[]>([])
+  const [progress, setProgress] = useState({ done: 0, total: 0 })
+  const [outcome, setOutcome] = useState<ImportOutcome | null>(null)
   const [dragOver, setDragOver] = useState(false)
 
   const handleFile = async (file: File) => {
-    if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
-      showToast('รองรับเฉพาะไฟล์ .xlsx, .xls, .csv', 'error')
+    if (!format.pattern.test(file.name)) {
+      showToast(format.unsupported, 'error')
       return
     }
     try {
-      const parsed = await parseExcelFile(file)
-      if (parsed.length === 0) {
+      const rows = await format.read(file)
+      if (rows.length === 0) {
         showToast('ไม่พบข้อมูลในไฟล์', 'error')
         return
       }
-      setDrugs(parsed)
+      const prepared = prepareImport(rows, format.defaults)
+      if (!prepared.ok) {
+        showToast(`แถว ${prepared.row}: ${prepared.problem}`, 'error')
+        return
+      }
+      setLines(prepared.lines)
       setFileName(file.name)
       setStep('preview')
-    } catch {
-      showToast('ไม่สามารถอ่านไฟล์ได้', 'error')
+    } catch (e) {
+      showToast(e instanceof Error && e.message ? e.message : 'ไม่สามารถอ่านไฟล์ได้', 'error')
     }
   }
 
@@ -104,25 +62,25 @@ export default function ImportDrugsModal({ onClose, onImported }: Props) {
 
   const handleImport = async () => {
     setLoading(true)
-    try {
-      const result = await bulkImportDrugs(drugs)
-      setImported(result.imported)
-      setErrors(result.errors)
-      setStep('result')
-      if (result.imported > 0) onImported()
-    } catch (e: unknown) {
-      showToast((e as Error).message, 'error')
-    } finally {
-      setLoading(false)
-    }
+    setProgress({ done: 0, total: lines.length })
+    const result = await runImport(lines, bulkImportDrugs, (done, total) => setProgress({ done, total }))
+    setLoading(false)
+    setOutcome(result)
+    setStep('result')
+    if (result.imported > 0) onImported()
+  }
+
+  const startOver = () => {
+    setStep('idle')
+    setLines([])
+    setOutcome(null)
   }
 
   // ── IDLE ──────────────────────────────────────────────────────────
   if (step === 'idle') {
     return (
-      <Modal title="นำเข้ายาจาก Excel" onClose={onClose}>
+      <Modal title={format.title} onClose={onClose}>
         <div className="space-y-4">
-          {/* Drop zone */}
           <div
             onClick={() => fileInputRef.current?.click()}
             onDragOver={e => { e.preventDefault(); setDragOver(true) }}
@@ -132,29 +90,41 @@ export default function ImportDrugsModal({ onClose, onImported }: Props) {
               dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
             }`}
           >
-            <div className="text-4xl mb-3">📂</div>
+            <div className="text-4xl mb-3">{format.icon}</div>
             <p className="text-sm font-medium text-gray-700">คลิกเพื่อเลือกไฟล์ หรือลากวางที่นี่</p>
-            <p className="text-xs text-gray-400 mt-1">รองรับ .xlsx, .xls, .csv</p>
+            <p className="text-xs text-gray-400 mt-1">{format.dropHint}</p>
           </div>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".xlsx,.xls,.csv"
+            accept={format.accept}
             className="hidden"
             onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])}
           />
 
-          {/* Template download */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
-            <div>
-              <p className="text-sm font-medium text-gray-700">ดาวน์โหลด Template</p>
-              <p className="text-xs text-gray-400">ไฟล์ตัวอย่างพร้อม header และข้อมูลตัวอย่าง 1 แถว</p>
+          {format.template && (
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
+              <div>
+                <p className="text-sm font-medium text-gray-700">ดาวน์โหลด Template</p>
+                <p className="text-xs text-gray-400">ไฟล์ตัวอย่างพร้อม header และข้อมูลตัวอย่าง 1 แถว</p>
+              </div>
+              <Button variant="secondary" onClick={format.template}
+                className="border-green-300 text-green-700 hover:bg-green-50 shrink-0">
+                ⬇ Template
+              </Button>
             </div>
-            <Button variant="secondary" onClick={downloadDrugTemplate}
-              className="border-green-300 text-green-700 hover:bg-green-50 shrink-0">
-              ⬇ Template
-            </Button>
-          </div>
+          )}
+
+          {format.mapping && (
+            <div className="bg-gray-50 rounded-xl px-4 py-3">
+              <p className="text-xs font-medium text-gray-600 mb-1.5">Field mapping</p>
+              <ul className="text-xs text-gray-500 space-y-0.5">
+                {format.mapping.map(([from, to]) => (
+                  <li key={from}><span className="font-mono text-gray-700">{from}</span> → {to}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <Button variant="secondary" className="w-full" onClick={onClose}>ปิด</Button>
         </div>
@@ -164,27 +134,37 @@ export default function ImportDrugsModal({ onClose, onImported }: Props) {
 
   // ── PREVIEW ───────────────────────────────────────────────────────
   if (step === 'preview') {
-    const preview = drugs.slice(0, PREVIEW_LIMIT)
+    const preview = lines.slice(0, PREVIEW_LIMIT)
+    const withStock = lines.filter(l => l.input.stock > 0).length
     return (
       <Modal title={`ตรวจสอบข้อมูล — ${fileName}`} onClose={onClose}>
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-sm font-semibold rounded-full">
-              {drugs.length} รายการ
+              {lines.length.toLocaleString()} รายการ
             </span>
-            {drugs.length > PREVIEW_LIMIT && (
-              <span className="text-xs text-gray-400">
-                แสดง {PREVIEW_LIMIT} รายการแรก
+            {withStock > 0 && (
+              <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">
+                มีสต็อก {withStock.toLocaleString()} รายการ
               </span>
+            )}
+            {lines.length > PREVIEW_LIMIT && (
+              <span className="text-xs text-gray-400">แสดง {PREVIEW_LIMIT} รายการแรก</span>
             )}
           </div>
 
-          {/* Preview table */}
+          {withStock > 0 && (
+            <div className="flex gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-xs text-amber-700">
+              <span aria-hidden="true">ℹ</span>
+              <span>สต็อกที่นำเข้าจะอยู่ในล็อตเปิดยอด (OPENING, ไม่มีวันหมดอายุ) — เพิ่มล็อตจริงในหน้ารายการยาเพื่อให้ระบบ FEFO ทำงานถูกต้อง</span>
+            </div>
+          )}
+
           <div className="overflow-auto max-h-72 rounded-lg border border-gray-200">
             <table className="w-full text-xs">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600">#</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600">แถว</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-600">ชื่อการค้า</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-600">ประเภท</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-600">ราคาขาย</th>
@@ -193,32 +173,35 @@ export default function ImportDrugsModal({ onClose, onImported }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {preview.map((d, i) => (
-                  <tr key={i} className={`border-t border-gray-100 ${!d.name ? 'bg-red-50' : ''}`}>
-                    <td className="px-3 py-1.5 text-gray-400">{i + 2}</td>
+                {preview.map(({ row, input: d }) => (
+                  <tr key={row} className="border-t border-gray-100">
+                    <td className="px-3 py-1.5 text-gray-400">{row}</td>
                     <td className="px-3 py-1.5">
-                      {d.name
-                        ? <span className="font-medium text-gray-800">{d.name}</span>
-                        : <span className="text-red-500 italic">ว่าง</span>
-                      }
-                      {d.generic_name && <span className="text-gray-400 ml-1">{d.generic_name}</span>}
+                      <span className="font-medium text-gray-800">{d.name}</span>
+                      {d.generic_name && <div className="text-gray-400 text-[11px] truncate max-w-[240px]">{d.generic_name}</div>}
                     </td>
                     <td className="px-3 py-1.5 text-gray-600">{d.type}</td>
-                    <td className="px-3 py-1.5 text-right text-gray-700">฿{d.sell_price}</td>
-                    <td className="px-3 py-1.5 text-right text-gray-700">{d.stock}</td>
-                    <td className="px-3 py-1.5 text-gray-400">{d.barcode || '—'}</td>
+                    <td className="px-3 py-1.5 text-right text-gray-700">฿{d.sell_price.toLocaleString()}</td>
+                    <td className={`px-3 py-1.5 text-right ${d.stock > 0 ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>{d.stock}</td>
+                    <td className="px-3 py-1.5 text-gray-400 font-mono">{d.barcode || '—'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
+          {loading && (
+            <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
+              กำลังนำเข้า {progress.done.toLocaleString()} / {progress.total.toLocaleString()} …
+            </div>
+          )}
+
           <div className="flex gap-2 pt-1">
             <Button variant="secondary" className="flex-1" onClick={() => setStep('idle')} disabled={loading}>
               ← เลือกไฟล์ใหม่
             </Button>
             <Button className="flex-1" onClick={handleImport} disabled={loading}>
-              {loading ? 'กำลังนำเข้า…' : `นำเข้า ${drugs.length} รายการ`}
+              {loading ? 'กำลังนำเข้า…' : `นำเข้า ${lines.length.toLocaleString()} รายการ`}
             </Button>
           </div>
         </div>
@@ -227,22 +210,29 @@ export default function ImportDrugsModal({ onClose, onImported }: Props) {
   }
 
   // ── RESULT ────────────────────────────────────────────────────────
+  const imported = outcome?.imported ?? 0
+  const errors = outcome?.errors ?? []
   return (
     <Modal title="ผลการนำเข้า" onClose={onClose}>
       <div className="space-y-4">
-        {/* Summary badges */}
         <div className="flex gap-3">
           <div className="flex-1 bg-green-50 rounded-xl p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{imported}</div>
+            <div className="text-2xl font-bold text-green-600">{imported.toLocaleString()}</div>
             <div className="text-xs text-green-700 mt-0.5">นำเข้าสำเร็จ</div>
           </div>
           <div className="flex-1 bg-red-50 rounded-xl p-4 text-center">
-            <div className="text-2xl font-bold text-red-500">{errors.length}</div>
+            <div className="text-2xl font-bold text-red-500">{errors.length.toLocaleString()}</div>
             <div className="text-xs text-red-600 mt-0.5">มีข้อผิดพลาด</div>
           </div>
         </div>
 
-        {/* Error table */}
+        {outcome?.failure != null && (
+          <div role="alert" className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+            การนำเข้าหยุดกลางทาง: {errorText(outcome.failure)} — ยังไม่ได้ส่ง {outcome.notSent.toLocaleString()} รายการ
+            (รายการที่นำเข้าสำเร็จแล้วไม่ต้องนำเข้าซ้ำ)
+          </div>
+        )}
+
         {errors.length > 0 && (
           <div className="overflow-auto max-h-56 rounded-lg border border-red-100">
             <table className="w-full text-xs">
@@ -268,7 +258,7 @@ export default function ImportDrugsModal({ onClose, onImported }: Props) {
 
         <div className="flex gap-2">
           {imported > 0 && (
-            <Button variant="secondary" className="flex-1" onClick={() => setStep('idle')}>
+            <Button variant="secondary" className="flex-1" onClick={startOver}>
               นำเข้าเพิ่มเติม
             </Button>
           )}

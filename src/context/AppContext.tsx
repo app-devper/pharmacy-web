@@ -1,29 +1,20 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState } from 'react'
 import type { ReactNode } from 'react'
-
-interface Toast {
-  message: string
-  type: 'success' | 'error' | 'info'
-  visible: boolean
-}
+import { createToaster, type Toast, type ToastType } from '../lib/toast'
 
 interface AppContextValue {
   toast: Toast
-  showToast: (message: string, type?: Toast['type']) => void
+  showToast: (message: string, type?: ToastType) => void
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<Toast>({ message: '', type: 'success', visible: false })
-
-  const showToast = useCallback((message: string, type: Toast['type'] = 'success') => {
-    setToast({ message, type, visible: true })
-    setTimeout(() => setToast(t => ({ ...t, visible: false })), 3000)
-  }, [])
+  const [toaster] = useState(() => createToaster(setToast))
 
   return (
-    <AppContext.Provider value={{ toast, showToast }}>
+    <AppContext.Provider value={{ toast, showToast: toaster.show }}>
       {children}
     </AppContext.Provider>
   )

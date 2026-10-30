@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import { updateDrug } from '../api/drugs'
+import { draftProblems, drugUpdateOf } from '../lib/drugDraft'
 import { useToast } from '../hooks/useToast'
 import { useDrugs } from '../hooks/useDrugs'
 import { DRUG_TYPES, DRUG_UNITS, KY_REPORT_OPTIONS, getDrugSellPrice } from '../types/drug'
@@ -17,7 +18,7 @@ export default function EditDrugPage() {
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const showToast = useToast()
-  const { drugs, loading: drugsLoading, reload: reloadDrugs } = useDrugs()
+  const { drugs, loading: drugsLoading, stockChanged } = useDrugs()
 
   // Lookup drug from the shared cache by URL param.
   const drug = useMemo(() => drugs.find(d => d.id === id), [drugs, id])
@@ -32,7 +33,7 @@ export default function EditDrugPage() {
   const [altUnits, setAltUnits] = useState<AltUnitDraft[]>([])
   const [loading, setLoading] = useState(false)
   // Seed the form only once when the drug first arrives in the cache. Later
-  // background updates (e.g. patchStocks after a sibling sale) mustn't wipe
+  // background updates (e.g. stockChanged after a sibling sale) mustn't wipe
   // the user's in-progress edits.
   const seededRef = useRef(false)
 
@@ -91,24 +92,18 @@ export default function EditDrugPage() {
   }
 
   const handleSave = async () => {
-    if (!form.name) { showToast('กรุณากรอกชื่อยา', 'error'); return }
+    const draft = { ...form, report_types: reportTypes }
+    const [problem] = draftProblems(draft)
+    if (problem) { showToast(problem, 'error'); return }
     const validatedAlts = validateAltUnits(altUnits, form.unit)
     if (validatedAlts.error) { showToast(validatedAlts.error, 'error'); return }
     const retail = +form.retail || 0
     const prices = draftsToPriceTiers(priceTiers, retail)
     setLoading(true)
     try {
-      await updateDrug(drug.id, {
-        name: form.name, generic_name: form.generic_name,
-        type: form.type, strength: form.strength, barcode: form.barcode,
-        sell_price: retail, cost_price: +form.cost_price || 0,
-        min_stock: +form.min_stock || 0, reg_no: form.reg_no, unit: form.unit,
-        report_types: reportTypes,
-        alt_units: validatedAlts.units,
-        prices,
-      })
+      await updateDrug(drug.id, drugUpdateOf(draft, { alt_units: validatedAlts.units, prices }))
       showToast('แก้ไขยาสำเร็จ')
-      reloadDrugs()
+      stockChanged()
       navigate('/stock')
     } catch (e: unknown) {
       showToast((e as Error).message, 'error')

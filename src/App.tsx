@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Layout from './components/layout/Layout'
 import LoginPage from './pages/LoginPage'
+import SsoPage from './pages/SsoPage'
 import SellPage from './pages/SellPage'
 import StockPage from './pages/StockPage'
 import CustomersPage from './pages/CustomersPage'
@@ -25,7 +26,7 @@ import HelpPage from './pages/HelpPage'
 import StockCountPage from './pages/StockCountPage'
 import OfflineSyncPage from './pages/OfflineSyncPage'
 import LabelPrintPage from './pages/LabelPrintPage'
-import { hasRole, type Role } from './lib/roles'
+import { canOpen, type Page } from './lib/access'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -43,49 +44,46 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function RoleRoute({ min, children }: { min: Role; children: React.ReactNode }) {
+/** Opens `page` only for a user the access policy lets in (lib/access). */
+function PageRoute({ page, children }: { page: Page; children: React.ReactNode }) {
   const { user, loading } = useAuth()
   if (loading) return null
-  if (!user || !hasRole(user.role, min))
+  if (!user || !canOpen(user.role, page))
     return <Navigate to="/sell" replace />
   return <>{children}</>
 }
-
-const AdminRoute = ({ children }: { children: React.ReactNode }) =>
-  <RoleRoute min="ADMIN">{children}</RoleRoute>
-const ManagerRoute = ({ children }: { children: React.ReactNode }) =>
-  <RoleRoute min="MANAGER">{children}</RoleRoute>
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="login" element={<LoginPage />} />
+        <Route path="sso" element={<SsoPage />} />
         <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route index element={<Navigate to="/sell" replace />} />
-          <Route path="sell" element={<SellPage />} />
-          <Route path="sales" element={<SalesHistoryPage />} />
-          <Route path="stock" element={<StockPage />} />
-          <Route path="stock-count" element={<ManagerRoute><StockCountPage /></ManagerRoute>} />
-          <Route path="labels" element={<ManagerRoute><LabelPrintPage /></ManagerRoute>} />
-          <Route path="stock/new"       element={<AdminRoute><AddDrugPage /></AdminRoute>} />
-          <Route path="stock/:id/edit"  element={<AdminRoute><EditDrugPage /></AdminRoute>} />
-          <Route path="imports"   element={<ManagerRoute><ImportPage /></ManagerRoute>} />
-          <Route path="suppliers" element={<ManagerRoute><SuppliersPage /></ManagerRoute>} />
-          <Route path="customers" element={<CustomersPage />} />
-          <Route path="report"    element={<ManagerRoute><ReportPage /></ManagerRoute>} />
-          <Route path="profit"    element={<AdminRoute><ProfitPage /></AdminRoute>} />
-          <Route path="expiry"    element={<ManagerRoute><ExpiryPage /></ManagerRoute>} />
-          <Route path="movements" element={<MovementsPage />} />
-          <Route path="offline-sync" element={<OfflineSyncPage />} />
-          <Route path="ky9"  element={<AdminRoute><Ky9Page /></AdminRoute>} />
-          <Route path="ky10" element={<AdminRoute><Ky10Page /></AdminRoute>} />
-          <Route path="ky11" element={<AdminRoute><Ky11Page /></AdminRoute>} />
-          <Route path="ky12" element={<AdminRoute><Ky12Page /></AdminRoute>} />
-          <Route path="users" element={<AdminRoute><UsersPage /></AdminRoute>} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
-          <Route path="help" element={<HelpPage />} />
+          <Route path="sell" element={<PageRoute page="/sell"><SellPage /></PageRoute>} />
+          <Route path="sales" element={<PageRoute page="/sales"><SalesHistoryPage /></PageRoute>} />
+          <Route path="stock" element={<PageRoute page="/stock"><StockPage /></PageRoute>} />
+          <Route path="stock-count" element={<PageRoute page="/stock-count"><StockCountPage /></PageRoute>} />
+          <Route path="labels" element={<PageRoute page="/labels"><LabelPrintPage /></PageRoute>} />
+          <Route path="stock/new" element={<PageRoute page="/stock/new"><AddDrugPage /></PageRoute>} />
+          <Route path="stock/:id/edit" element={<PageRoute page="/stock/:id/edit"><EditDrugPage /></PageRoute>} />
+          <Route path="imports" element={<PageRoute page="/imports"><ImportPage /></PageRoute>} />
+          <Route path="suppliers" element={<PageRoute page="/suppliers"><SuppliersPage /></PageRoute>} />
+          <Route path="customers" element={<PageRoute page="/customers"><CustomersPage /></PageRoute>} />
+          <Route path="report" element={<PageRoute page="/report"><ReportPage /></PageRoute>} />
+          <Route path="profit" element={<PageRoute page="/profit"><ProfitPage /></PageRoute>} />
+          <Route path="expiry" element={<PageRoute page="/expiry"><ExpiryPage /></PageRoute>} />
+          <Route path="movements" element={<PageRoute page="/movements"><MovementsPage /></PageRoute>} />
+          <Route path="offline-sync" element={<PageRoute page="/offline-sync"><OfflineSyncPage /></PageRoute>} />
+          <Route path="ky9" element={<PageRoute page="/ky9"><Ky9Page /></PageRoute>} />
+          <Route path="ky10" element={<PageRoute page="/ky10"><Ky10Page /></PageRoute>} />
+          <Route path="ky11" element={<PageRoute page="/ky11"><Ky11Page /></PageRoute>} />
+          <Route path="ky12" element={<PageRoute page="/ky12"><Ky12Page /></PageRoute>} />
+          <Route path="users" element={<PageRoute page="/users"><UsersPage /></PageRoute>} />
+          <Route path="profile" element={<PageRoute page="/profile"><ProfilePage /></PageRoute>} />
+          <Route path="settings" element={<PageRoute page="/settings"><SettingsPage /></PageRoute>} />
+          <Route path="help" element={<PageRoute page="/help"><HelpPage /></PageRoute>} />
         </Route>
       </Routes>
     </BrowserRouter>

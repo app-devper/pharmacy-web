@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import type { Sale } from '../types/sale'
 import { getSales } from '../api/sales'
-import { useToast } from '../hooks/useToast'
+import { useServerRead } from '../hooks/useServerRead'
 import { fmtDateTime } from '../utils/formatters'
 import SaleDetailModal from '../components/sell/SaleDetailModal'
 import Spinner from '../components/ui/Spinner'
-import { useDrugs } from '../hooks/useDrugs'
 import { todayBangkok } from '../utils/date'
 
 export default function SalesHistoryPage() {
@@ -13,26 +12,14 @@ export default function SalesHistoryPage() {
   const [from, setFrom] = useState(today)
   const [to,   setTo]   = useState(today)
   const [q,    setQ]    = useState('')
-  const [sales, setSales]   = useState<Sale[]>([])
-  const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState<Sale | null>(null)
-  const showToast = useToast()
-  const { reload: reloadDrugs } = useDrugs()
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await getSales({ from, to, q: q.trim() || undefined, limit: 500 })
-      setSales(data)
-    } catch (e: unknown) {
-      showToast((e as Error).message, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }, [from, to, q, showToast])
-
-  // Load on mount with today's date
-  useEffect(() => { load() }, [load])
+  // Follows stock changes, so a void or return made here (or anywhere) shows up.
+  const read = useCallback(
+    () => getSales({ from, to, q: q.trim() || undefined, limit: 500 }),
+    [from, to, q],
+  )
+  const { data: sales, loading, reload: load } = useServerRead<Sale[]>(read, [], { followStock: true })
 
   const totalSales = sales.filter(s => !s.voided).reduce((sum, s) => sum + s.total, 0)
   const voidedCount = sales.filter(s => s.voided).length
@@ -143,13 +130,7 @@ export default function SalesHistoryPage() {
         <SaleDetailModal
           sale={selected}
           onClose={() => setSelected(null)}
-          onSaleChanged={() => {
-            // Void/return restores stock on the backend → invalidate shared drug cache
-            // so SellPage/StockPage don't show stale numbers.
-            setSelected(null)
-            load()
-            reloadDrugs()
-          }}
+          onSaleChanged={() => setSelected(null)}
         />
       )}
     </div>

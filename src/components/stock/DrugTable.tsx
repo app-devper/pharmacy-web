@@ -7,19 +7,18 @@ import { StockBadge, TypeBadge, KyBadges } from '../ui/Badge'
 import LotListModal from './LotListModal'
 import StockAdjustmentModal from './StockAdjustmentModal'
 import AdjustmentLogModal from './AdjustmentLogModal'
-import { useIsAdmin, useIsManager } from '../../hooks/useIsAdmin'
+import { useCan } from '../../hooks/useCan'
 import { useDrugs } from '../../hooks/useDrugs'
 
 interface Props {
   drugs: Drug[]
-  onReload: () => void
 }
 
-export default function DrugTable({ drugs, onReload }: Props) {
+export default function DrugTable({ drugs }: Props) {
   const navigate = useNavigate()
-  const isAdmin = useIsAdmin()
-  const isManager = useIsManager()
-  const { patchStocks } = useDrugs()
+  const canEditDrug = useCan('edit_drug')
+  const canAdjust = useCan('adjust_stock')
+  const { stockChanged } = useDrugs()
   const [lotDrug, setLotDrug]       = useState<Drug | null>(null)
   const [adjustDrug, setAdjustDrug] = useState<Drug | null>(null)
   const [logDrug, setLogDrug]       = useState<Drug | null>(null)
@@ -45,7 +44,7 @@ export default function DrugTable({ drugs, onReload }: Props) {
   const handleAdjusted = (updated: Drug) => {
     // Sync shared cache so SellPage (and anywhere else using useDrugs) reflects
     // the new stock immediately — no need for localOverrides anymore.
-    patchStocks([{ drug_id: updated.id, new_stock: updated.stock }])
+    stockChanged([{ drug_id: updated.id, new_stock: updated.stock }])
     setAdjustDrug(null)
     if (logDrug?.id === updated.id) setLogDrug(updated)
   }
@@ -114,7 +113,7 @@ export default function DrugTable({ drugs, onReload }: Props) {
                   <td className="py-3 px-3 text-gray-400 text-xs">{drug.barcode || '—'}</td>
                   <td className="py-3 px-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                     <div className="flex gap-1 flex-nowrap">
-                      {isAdmin && (
+                      {canEditDrug && (
                         <button
                           onClick={() => navigate(`/stock/${drug.id}/edit`)}
                           className="text-xs px-2 py-1 rounded text-blue-700 hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 whitespace-nowrap"
@@ -124,7 +123,7 @@ export default function DrugTable({ drugs, onReload }: Props) {
                         onClick={() => setLotDrug(drug)}
                         className="text-xs px-2 py-1 rounded text-indigo-600 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 whitespace-nowrap"
                       >ล็อต</button>
-                      {isManager && (
+                      {canAdjust && (
                         <button
                           onClick={() => setAdjustDrug(drug)}
                           className="text-xs px-2 py-1 rounded text-emerald-700 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 whitespace-nowrap"
@@ -155,7 +154,6 @@ export default function DrugTable({ drugs, onReload }: Props) {
         <LotListModal
           drug={lotDrug}
           onClose={() => setLotDrug(null)}
-          onReload={onReload}
         />
       )}
       {adjustDrug && (

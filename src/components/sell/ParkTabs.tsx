@@ -1,6 +1,7 @@
 import { useCart } from '../../context/CartContext'
 import { useToast } from '../../hooks/useToast'
-import { getDrugSellPrice } from '../../types/drug'
+import type { PriceTier } from '../../types/drug'
+import { totalsOf } from '../../lib/checkout'
 import { fmtMoney } from '../../utils/formatters'
 import type { CartItem, ParkedSlot } from '../../types/sale'
 
@@ -9,9 +10,9 @@ function fmtTime(ts: number): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-function slotTotal(items: CartItem[]): number {
-  return items.reduce((s, i) =>
-    s + Math.max(0, getDrugSellPrice(i) - (i.itemDiscount || 0)) * i.qty, 0)
+/** What a tab's lines come to at its own price tier (before the cart discount). */
+function slotTotal(items: CartItem[], tier: PriceTier): number {
+  return totalsOf(items, tier, '', '฿').subtotal
 }
 
 function slotQty(items: CartItem[]): number {
@@ -20,7 +21,7 @@ function slotQty(items: CartItem[]): number {
 
 export default function ParkTabs() {
   const {
-    items, total, selectedCustomer,
+    items, priceTier, selectedCustomer,
     activeSlot, slots, switchToSlot, discardSlot,
   } = useCart()
   const showToast = useToast()
@@ -58,7 +59,7 @@ export default function ParkTabs() {
         const snap: ParkedSlot | null = isActive ? null : slots[i]
         const hasItems = isActive ? items.length > 0 : snap !== null
         const displayItems  = isActive ? items       : (snap?.items ?? [])
-        const displayTotal  = isActive ? total       : slotTotal(snap?.items ?? [])
+        const displayTotal  = isActive ? slotTotal(items, priceTier) : slotTotal(snap?.items ?? [], snap?.priceTier ?? 'retail')
 
         // Tooltip content for filled inactive tabs
         const tooltip = hasItems && !isActive && snap

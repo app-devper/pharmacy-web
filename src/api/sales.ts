@@ -1,6 +1,5 @@
-import { ApiError, apiFetch, isTemporaryOutage } from './client'
-import { Sale, SaleItem, SaleInput, SaleResponse, DrugReturn, DrugReturnInput } from '../types/sale'
-import { enqueueSale, newSaleRequestId } from '../lib/offlineQueue'
+import { apiFetch } from './client'
+import type { Sale, SaleItem, DrugReturn, DrugReturnInput } from '../types/sale'
 
 export interface SalesFilter {
   limit?: number
@@ -8,6 +7,8 @@ export interface SalesFilter {
   to?: string     // YYYY-MM-DD
   q?: string      // bill_no or customer_name
 }
+
+// Submitting a sale (confirmed or kept pending) belongs to lib/pendingSales.
 
 export function getSales(filter: SalesFilter = {}) {
   const p = new URLSearchParams()
@@ -25,88 +26,6 @@ export const voidSale = (id: string, reason: string) =>
     method: 'POST',
     body: JSON.stringify({ reason }),
   })
-
-export type AbandonOutcome = { abandoned: true } | { abandoned: false; sale: SaleResponse }
-
-/**
- * Record that a queued sale will never be recorded, or close a recorded
- * sale's refused KY records (ADMIN+, pharmacy-api ADR-0009). A queued sale the
- * server recorded meanwhile comes back as `{abandoned: false, sale}`.
- */
-export async function abandonQueued(
-  clientRequestId: string, kind: 'sale' | 'ky_forms', payload: unknown, reason: string,
-): Promise<AbandonOutcome> {
-  try {
-    await apiFetch('/api/pharmacy/v1/sales/abandon', {
-      method: 'POST',
-      body: JSON.stringify({ client_request_id: clientRequestId, kind, payload, reason }),
-    })
-    return { abandoned: true }
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 409) {
-      const sale = recordedSale(e.body)
-      if (sale) return { abandoned: false, sale }
-    }
-    throw e
-  }
-}
-
-function recordedSale(body: string): SaleResponse | null {
-  try {
-    const parsed = JSON.parse(body) as { sale?: SaleResponse }
-    return parsed.sale?.bill_no ? parsed.sale : null
-  } catch {
-    return null
-  }
-}
-
-/**
- * Direct API call — used internally by pendingSales when flushing the queue.
- * Always hits the network; never queues.
- */
-export const _createSaleRaw = (data: SaleInput) =>
-  apiFetch<SaleResponse>('/api/pharmacy/v1/sales', { method: 'POST', body: JSON.stringify(data) })
-
-const OFFLINE_BILL_PREFIX = 'OFFLINE-'
-
-/**
- * Offline-aware createSale.
- * - Online  → POST /api/pharmacy/v1/sales normally
- * - Offline → enqueue in IndexedDB, return a temporary receipt
- * - Online but the request fails temporarily (the network drops, or the
- *   server cannot confirm the session, ADR-0016) → queue it like an offline
- *   sale; pendingSales replays it later.
- *
- * The sale gets its client_request_id before the first attempt. If the
- * network dropped after the server recorded the sale, the replay carries the
- * same id and pharmacy-api returns the existing sale instead of a duplicate.
- * The bill's KY capture (`data.ky`) travels with it, so its forms are
- * recorded with the sale, once (pharmacy-api ADR-0011).
- */
-export async function createSale(data: SaleInput): Promise<SaleResponse> {
-  const request = { ...data, client_request_id: data.client_request_id || newSaleRequestId() }
-  if (!navigator.onLine) return queueSale(request)
-  try {
-    return await _createSaleRaw(request)
-  } catch (e) {
-    if (isTemporaryOutage(e)) return queueSale(request)
-    throw e
-  }
-}
-
-/** True when createSale queued the sale instead of confirming it with the server. */
-export const isQueuedReceipt = (r: SaleResponse) => r.bill_no.startsWith(OFFLINE_BILL_PREFIX)
-
-async function queueSale(data: SaleInput): Promise<SaleResponse> {
-  const id    = await enqueueSale(data)
-  const total = data.items.reduce((s, i) => s + i.price * i.qty, 0) - (data.discount ?? 0)
-  return {
-    bill_no:  `${OFFLINE_BILL_PREFIX}${id.slice(-8)}`,
-    total:    Math.max(0, total),
-    discount: data.discount ?? 0,
-    change:   Math.max(0, data.received - Math.max(0, total)),
-  }
-}
 
 export const getSaleItems = (saleId: string) =>
   apiFetch<SaleItem[]>(`/api/pharmacy/v1/sales/${saleId}/items`)

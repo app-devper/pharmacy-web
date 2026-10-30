@@ -2,20 +2,21 @@ import { useState, useEffect } from 'react'
 import { useSettings } from '../context/SettingsContext'
 import { updateSettings } from '../api/settings'
 import { useToast } from '../hooks/useToast'
-import { useIsAdmin } from '../hooks/useIsAdmin'
+import { useCan } from '../hooks/useCan'
 import { useDrugs } from '../hooks/useDrugs'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
-import ImportJsonModal from '../components/stock/ImportJsonModal'
+import DrugImportModal from '../components/stock/DrugImportModal'
+import { aigxJsonFormat } from '../components/stock/importFormats'
 import type { Settings } from '../types/setting'
 import { defaultSettings, TIMEZONE_OPTIONS } from '../types/setting'
 
 type Tab = 'store' | 'receipt' | 'stock' | 'pharmacist' | 'ky' | 'import'
 
 export default function SettingsPage() {
-  const isAdmin = useIsAdmin()
+  const canEdit = useCan('edit_settings')
   const { settings, loading, setSettings } = useSettings()
-  const { reload: reloadDrugs } = useDrugs()
+  const { stockChanged } = useDrugs()
   const showToast = useToast()
 
   const [tab, setTab] = useState<Tab>('store')
@@ -124,7 +125,7 @@ export default function SettingsPage() {
                 type="text"
                 value={form.store.name}
                 onChange={e => setStore('name', e.target.value)}
-                disabled={!isAdmin}
+                disabled={!canEdit}
                 className={inputCls}
               />
             </div>
@@ -133,7 +134,7 @@ export default function SettingsPage() {
               <textarea
                 value={form.store.address}
                 onChange={e => setStore('address', e.target.value)}
-                disabled={!isAdmin}
+                disabled={!canEdit}
                 rows={2}
                 className={inputCls}
               />
@@ -145,7 +146,7 @@ export default function SettingsPage() {
                   type="tel"
                   value={form.store.phone}
                   onChange={e => setStore('phone', e.target.value)}
-                  disabled={!isAdmin}
+                  disabled={!canEdit}
                   className={inputCls}
                 />
               </div>
@@ -155,13 +156,24 @@ export default function SettingsPage() {
                   type="text"
                   value={form.store.tax_id}
                   onChange={e => setStore('tax_id', e.target.value)}
-                  disabled={!isAdmin}
+                  disabled={!canEdit}
                   className={inputCls}
                 />
               </div>
             </div>
+            <div>
+              <label className={labelCls}>เลขที่ใบอนุญาตขายยา</label>
+              <input
+                type="text"
+                value={form.store.license_no ?? ''}
+                onChange={e => setStore('license_no', e.target.value)}
+                placeholder="เช่น ขย. 12345/2567"
+                disabled={!canEdit}
+                className={inputCls}
+              />
+            </div>
             <p className="text-xs text-gray-400">
-              ข้อมูลร้านจะแสดงที่หัวใบเสร็จและเอกสารที่ export ออกไป
+              ข้อมูลร้านจะแสดงที่หัวใบเสร็จและเอกสารที่ export ออกไป · เลขที่ใบอนุญาตพิมพ์ที่หัวทะเบียน ขย.9–12
             </p>
 
             <div className="border-t border-gray-100 pt-4">
@@ -169,7 +181,7 @@ export default function SettingsPage() {
               <select
                 value={form.timezone || defaultSettings.timezone}
                 onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))}
-                disabled={!isAdmin}
+                disabled={!canEdit}
                 className={inputCls}
               >
                 {TIMEZONE_OPTIONS.map(tz => (
@@ -192,7 +204,7 @@ export default function SettingsPage() {
                 type="text"
                 value={form.receipt.header}
                 onChange={e => setReceipt('header', e.target.value)}
-                disabled={!isAdmin}
+                disabled={!canEdit}
                 placeholder="เช่น ยินดีต้อนรับ"
                 className={inputCls}
               />
@@ -203,7 +215,7 @@ export default function SettingsPage() {
                 type="text"
                 value={form.receipt.footer}
                 onChange={e => setReceipt('footer', e.target.value)}
-                disabled={!isAdmin}
+                disabled={!canEdit}
                 placeholder="เช่น ขอบคุณที่ใช้บริการ"
                 className={inputCls}
               />
@@ -216,7 +228,7 @@ export default function SettingsPage() {
                     key={w}
                     type="button"
                     onClick={() => setReceipt('paper_width', w)}
-                    disabled={!isAdmin}
+                    disabled={!canEdit}
                     className={`flex-1 px-3 py-2 rounded-lg border text-sm transition-colors ${
                       form.receipt.paper_width === w
                         ? 'border-blue-400 bg-blue-50 text-blue-700 font-medium'
@@ -234,7 +246,7 @@ export default function SettingsPage() {
                   type="checkbox"
                   checked={form.receipt.show_pharmacist}
                   onChange={e => setReceipt('show_pharmacist', e.target.checked)}
-                  disabled={!isAdmin}
+                  disabled={!canEdit}
                   className="accent-blue-600"
                 />
                 <span className="text-sm text-gray-700">แสดงชื่อเภสัชกรบนใบเสร็จ</span>
@@ -260,7 +272,7 @@ export default function SettingsPage() {
                 min="0" step="1"
                 value={form.stock.low_stock_threshold}
                 onChange={e => setStock('low_stock_threshold', +e.target.value || 0)}
-                disabled={!isAdmin}
+                disabled={!canEdit}
                 className={inputCls}
               />
               <p className="text-xs text-gray-400 mt-1">
@@ -278,7 +290,7 @@ export default function SettingsPage() {
                     min="1" max="365" step="1"
                     value={form.stock.reorder_days}
                     onChange={e => setStock('reorder_days', +e.target.value || 30)}
-                    disabled={!isAdmin}
+                    disabled={!canEdit}
                     className={inputCls}
                   />
                 </div>
@@ -289,7 +301,7 @@ export default function SettingsPage() {
                     min="1" max="180" step="1"
                     value={form.stock.reorder_lookahead}
                     onChange={e => setStock('reorder_lookahead', +e.target.value || 14)}
-                    disabled={!isAdmin}
+                    disabled={!canEdit}
                     className={inputCls}
                   />
                 </div>
@@ -306,7 +318,7 @@ export default function SettingsPage() {
                 min="1" max="365" step="1"
                 value={form.stock.expiring_days}
                 onChange={e => setStock('expiring_days', +e.target.value || 60)}
-                disabled={!isAdmin}
+                disabled={!canEdit}
                 className={inputCls}
               />
               <p className="text-xs text-gray-400 mt-1">
@@ -325,7 +337,7 @@ export default function SettingsPage() {
                 type="text"
                 value={form.pharmacist.name}
                 onChange={e => setPharmacist('name', e.target.value)}
-                disabled={!isAdmin}
+                disabled={!canEdit}
                 placeholder="เช่น ภก. สมชาย ใจดี"
                 className={inputCls}
               />
@@ -336,7 +348,7 @@ export default function SettingsPage() {
                 type="text"
                 value={form.pharmacist.license_no}
                 onChange={e => setPharmacist('license_no', e.target.value)}
-                disabled={!isAdmin}
+                disabled={!canEdit}
                 placeholder="เช่น ภ.12345"
                 className={inputCls}
               />
@@ -356,7 +368,7 @@ export default function SettingsPage() {
                   type="checkbox"
                   checked={form.ky.skip_auto}
                   onChange={e => setKy('skip_auto', e.target.checked)}
-                  disabled={!isAdmin}
+                  disabled={!canEdit}
                   className="accent-blue-600 mt-0.5"
                 />
                 <div>
@@ -373,7 +385,7 @@ export default function SettingsPage() {
               <textarea
                 value={form.ky.default_buyer_address}
                 onChange={e => setKy('default_buyer_address', e.target.value)}
-                disabled={!isAdmin}
+                disabled={!canEdit}
                 rows={2}
                 placeholder="เช่น อุบลราชธานี"
                 className={inputCls}
@@ -399,7 +411,7 @@ export default function SettingsPage() {
                     ยาที่มี stock {'>'} 0 จะถูกสร้างโดยยังไม่มีล็อต — ไปเพิ่มล็อตในหน้ารายการยาภายหลัง
                   </p>
                 </div>
-                {isAdmin && (
+                {canEdit && (
                   <Button
                     onClick={() => setShowImportJson(true)}
                     className="shrink-0 border-amber-300 text-amber-700 bg-white hover:bg-amber-50"
@@ -418,7 +430,7 @@ export default function SettingsPage() {
 
         {/* Save (hidden in Import tab — it has its own flow) */}
         {tab !== 'import' && (
-          isAdmin ? (
+          canEdit ? (
             <div className="pt-3 border-t border-gray-100 flex justify-end">
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? 'กำลังบันทึก…' : 'บันทึก'}
@@ -433,9 +445,10 @@ export default function SettingsPage() {
       </div>
 
       {showImportJson && (
-        <ImportJsonModal
+        <DrugImportModal
+          format={aigxJsonFormat}
           onClose={() => setShowImportJson(false)}
-          onImported={() => { reloadDrugs() }}
+          onImported={() => { stockChanged() }}
         />
       )}
     </div>

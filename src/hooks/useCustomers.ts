@@ -1,32 +1,6 @@
-import { useState, useEffect } from 'react'
-import type { Customer } from '../types/customer'
-import { getCustomers } from '../api/customers'
-
-let cachedCustomers: Customer[] = []
+import { customerList, useReferenceList } from './referenceLists'
 
 export function useCustomers() {
-  const [customers, setCustomers] = useState<Customer[]>(cachedCustomers)
-  const [loading, setLoading] = useState(cachedCustomers.length === 0)
-
-  const load = async () => {
-    setLoading(true)
-    try {
-      const data = await getCustomers()
-      cachedCustomers = data
-      setCustomers(data)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (cachedCustomers.length === 0) load()
-  }, [])
-
-  const reload = () => {
-    cachedCustomers = []
-    load()
-  }
-
-  return { customers, loading, reload }
+  const { items: customers, loading, error } = useReferenceList(customerList)
+  return { customers, loading, error, reload: customerList.refresh }
 }
