@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, Fragment } from 'react'
 import type { ReactNode } from 'react'
 import { session } from '../api/client'
-import type { SessionUser } from '../lib/session'
+import type { PasskeyLogin, SessionUser } from '../lib/session'
 
 const KEEP_ALIVE_INTERVAL_MS = 10 * 60 * 1000
 
@@ -9,7 +9,7 @@ interface AuthContextValue {
   user: SessionUser | null
   loading: boolean
   login: (username: string, password: string, system: string) => Promise<void>
-  loginWithPasskey: (system: string) => Promise<void>
+  loginWithPasskey: (system: string, login?: PasskeyLogin) => Promise<void>
   continueFromUm: (ticket: string, system: string) => Promise<void>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
@@ -48,8 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await session.login(username, password, system)
   }, [])
 
-  const loginWithPasskey = useCallback(async (system: string) => {
-    await session.loginWithPasskey(system)
+  const loginWithPasskey = useCallback(async (system: string, login?: PasskeyLogin) => {
+    await session.loginWithPasskey(system, login)
   }, [])
 
   const continueFromUm = useCallback(async (ticket: string, system: string) => {
