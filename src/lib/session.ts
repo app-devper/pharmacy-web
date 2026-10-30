@@ -222,6 +222,29 @@ export function createSession({ storage, fetch, umBase, now = Date.now, passkeys
       return begin(data.accessToken)
     },
 
+    /**
+     * Signs in with the one-time ticket UM handed over when the user opened
+     * this app from UM (um-api ADR-0011); a ticket for another system is refused.
+     * The ticket decides who is signed in, so any earlier session here ends first.
+     */
+    async continueFromUm(ticket: string, system: string): Promise<SessionUser> {
+      if (storedToken() || cachedUser()) end()
+      const data = await request<{ accessToken: string }>(
+        `${umBase}/api/um/v1/auth/exchange`,
+        { method: 'POST', body: JSON.stringify({ ticket }) },
+        { auth: false },
+      )
+      storage().setItem(TOKEN_KEY, data.accessToken)
+      try {
+        const principal = await request<{ system: string }>(`${umBase}/api/um/v1/auth/verify`)
+        if (principal.system !== system) throw new Error(`ticket is for ${principal.system}, not ${system}`)
+      } catch (e) {
+        end()
+        throw e
+      }
+      return begin(data.accessToken)
+    },
+
     async logout(): Promise<void> {
       if (storedToken()) {
         await request(`${umBase}/api/um/v1/auth/logout`, { method: 'POST' }).catch(() => {})

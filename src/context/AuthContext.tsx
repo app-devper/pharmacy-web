@@ -10,6 +10,7 @@ interface AuthContextValue {
   loading: boolean
   login: (username: string, password: string, system: string) => Promise<void>
   loginWithPasskey: (system: string) => Promise<void>
+  continueFromUm: (ticket: string, system: string) => Promise<void>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
 }
@@ -51,6 +52,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await session.loginWithPasskey(system)
   }, [])
 
+  const continueFromUm = useCallback(async (ticket: string, system: string) => {
+    await session.continueFromUm(ticket, system)
+  }, [])
+
   const logout = useCallback(() => session.logout(), [])
 
   const refreshUser = useCallback(async () => {
@@ -58,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithPasskey, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithPasskey, continueFromUm, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )
