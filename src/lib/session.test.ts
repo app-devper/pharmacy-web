@@ -111,6 +111,18 @@ describe('session', () => {
     expect(store.data.get('token')).toBe(LIVE)
   })
 
+  it('a 429 from um-api is not a refusal: the cashier stays signed in', async () => {
+    const { session, store } = setup(signedIn, () => new Response('slow down', { status: 429 }))
+    expect(await session.keepAlive()).toBe('unreachable')
+    expect(store.data.get('token')).toBe(LIVE)
+  })
+
+  it('a 403 from um-api refuses the session', async () => {
+    const { session, store } = setup(signedIn, () => new Response('forbidden', { status: 403 }))
+    expect(await session.keepAlive()).toBe('refused')
+    expect(store.data.has('token')).toBe(false)
+  })
+
   it('reads um-api and pharmacy-api refusal messages alike', async () => {
     const um = setup(signedIn, () => json({ message: 'ชื่อผู้ใช้ซ้ำ' }, 409))
     await expect(um.session.request(`${UM}/api/um/v1/user`)).rejects.toThrow('ชื่อผู้ใช้ซ้ำ')

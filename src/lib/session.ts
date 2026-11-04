@@ -150,7 +150,7 @@ export function createSession({ storage, fetch, umBase, now = Date.now, passkeys
 
   /** Was the failure um-api refusing the session, or not reaching it? */
   function checkOf(e: unknown): SessionCheck {
-    if (e instanceof ApiError && e.status < 500) return 'refused'
+    if (e instanceof ApiError && (e.status === 401 || e.status === 403)) return 'refused'
     return 'unreachable'
   }
 
