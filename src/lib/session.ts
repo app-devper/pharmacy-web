@@ -154,27 +154,38 @@ export function createSession({ storage, fetch, umBase, now = Date.now, passkeys
     return 'unreachable'
   }
 
+  /**
+   * A refusal ends the session only while the refused token is still the one
+   * stored: another tab may have signed in again while this call was in flight,
+   * and its session is not the one um-api refused.
+   */
+  function endIfStillUsing(refused: string | null) {
+    if (refused !== null && storedToken() === refused) end()
+  }
+
   /** Asks um-api to extend the session; a refusal ends it. */
   async function keepAlive(): Promise<SessionCheck> {
-    if (!token()) return 'refused'
+    const sent = token()
+    if (!sent) return 'refused'
     try {
       const data = await request<{ accessToken?: string } | undefined>(`${umBase}/api/um/v1/auth/keep-alive`)
       if (data?.accessToken) storage().setItem(TOKEN_KEY, data.accessToken)
       return 'confirmed'
     } catch (e) {
       const check = checkOf(e)
-      if (check === 'refused' && storedToken()) end()
+      if (check === 'refused') endIfStillUsing(sent)
       return check
     }
   }
 
   /** Reloads the user from um-api; unreachable keeps the last confirmed one. */
   async function refreshUser(): Promise<SessionUser | null> {
+    const sent = storedToken()
     try {
       return remember(await request<SessionUser>(`${umBase}/api/um/v1/user/info`))
     } catch (e) {
       if (checkOf(e) === 'unreachable') return cachedUser()
-      if (storedToken()) end()
+      endIfStillUsing(sent)
       return null
     }
   }

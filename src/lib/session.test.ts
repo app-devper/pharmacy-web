@@ -123,6 +123,36 @@ describe('session', () => {
     expect(store.data.has('token')).toBe(false)
   })
 
+  describe('a refusal for a token another tab already replaced', () => {
+    const next = jwt(NOW + 9_000_000)
+    const replacedThen = (status: number): Route => (_url, init) => {
+      const sent = (init?.headers as Record<string, string>)['Authorization']
+      expect(sent).toBe(`Bearer ${LIVE}`)
+      return new Response('', { status })
+    }
+    const swapTokenMidFlight = (store: ReturnType<typeof memoryStorage>, route: Route) => async (url: string, init?: RequestInit) => {
+      store.setItem('token', next)
+      return route(url, init)
+    }
+
+    for (const status of [401, 403]) {
+      it(`keep-alive ${status} keeps the new session`, async () => {
+        const store = memoryStorage(signedIn)
+        const session = createSession({ storage: () => store, fetch: swapTokenMidFlight(store, replacedThen(status)), umBase: UM, now: () => NOW })
+        expect(await session.keepAlive()).toBe('refused')
+        expect(store.data.get('token')).toBe(next)
+        expect(store.data.has('pharmacy.parkedCarts')).toBe(true)
+      })
+
+      it(`user refresh ${status} keeps the new session`, async () => {
+        const store = memoryStorage(signedIn)
+        const session = createSession({ storage: () => store, fetch: swapTokenMidFlight(store, replacedThen(status)), umBase: UM, now: () => NOW })
+        expect(await session.refreshUser()).toBeNull()
+        expect(store.data.get('token')).toBe(next)
+      })
+    }
+  })
+
   it('reads um-api and pharmacy-api refusal messages alike', async () => {
     const um = setup(signedIn, () => json({ message: 'ชื่อผู้ใช้ซ้ำ' }, 409))
     await expect(um.session.request(`${UM}/api/um/v1/user`)).rejects.toThrow('ชื่อผู้ใช้ซ้ำ')
